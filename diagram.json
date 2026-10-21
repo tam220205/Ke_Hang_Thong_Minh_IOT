@@ -1,0 +1,51 @@
+{
+  "version": 1,
+  "author": "Nhom 22 - Smart Shelf 3 Tiers",
+  "editor": "wokwi",
+  "parts": [
+    { "type": "board-esp32-devkit-c-v4", "id": "esp", "top": 40, "left": -20, "attrs": {} },
+    { "type": "board-ssd1306", "id": "oled", "top": -160, "left": -20, "attrs": { "i2cAddress": "0x3c" } },
+
+    { "type": "wokwi-hx711", "id": "cell1", "top": -120, "left": -320, "attrs": {} },
+    { "type": "wokwi-led", "id": "led1", "top": 60, "left": -260, "attrs": { "color": "red", "label": "K1" } },
+    { "type": "wokwi-resistor", "id": "r1", "top": 110, "left": -260, "attrs": { "value": "220" } },
+
+    { "type": "wokwi-hx711", "id": "cell2", "top": 180, "left": -320, "attrs": {} },
+    { "type": "wokwi-led", "id": "led2", "top": 360, "left": -260, "attrs": { "color": "red", "label": "K2" } },
+    { "type": "wokwi-resistor", "id": "r2", "top": 410, "left": -260, "attrs": { "value": "220" } },
+
+    { "type": "wokwi-hx711", "id": "cell3", "top": -120, "left": 220, "attrs": {} },
+    { "type": "wokwi-led", "id": "led3", "top": 60, "left": 260, "attrs": { "color": "red", "label": "K3" } },
+    { "type": "wokwi-resistor", "id": "r3", "top": 110, "left": 260, "attrs": { "value": "220" } }
+  ],
+  "connections": [
+    [ "esp:GND.1", "oled:GND", "black", [ "v0" ] ],
+    [ "esp:3V3", "oled:VCC", "red", [ "v0" ] ],
+    [ "esp:22", "oled:SCL", "blue", [ "v0" ] ],
+    [ "esp:21", "oled:SDA", "orange", [ "v0" ] ],
+
+    [ "esp:GND.1", "cell1:GND", "black", [ "v0" ] ],
+    [ "esp:3V3", "cell1:VCC", "red", [ "v0" ] ],
+    [ "esp:19", "cell1:DT", "green", [ "v0" ] ],
+    [ "esp:18", "cell1:SCK", "yellow", [ "v0" ] ],
+    [ "esp:2", "led1:A", "red", [ "v0" ] ],
+    [ "led1:C", "r1:1", "black", [ "v0" ] ],
+    [ "r1:2", "esp:GND.1", "black", [ "v0" ] ],
+
+    [ "esp:GND.2", "cell2:GND", "black", [ "v0" ] ],
+    [ "esp:3V3", "cell2:VCC", "red", [ "v0" ] ],
+    [ "esp:5", "cell2:DT", "green", [ "v0" ] ],
+    [ "esp:17", "cell2:SCK", "yellow", [ "v0" ] ],
+    [ "esp:4", "led2:A", "red", [ "v0" ] ],
+    [ "led2:C", "r2:1", "black", [ "v0" ] ],
+    [ "r2:2", "esp:GND.2", "black", [ "v0" ] ],
+
+    [ "esp:GND.2", "cell3:GND", "black", [ "v0" ] ],
+    [ "esp:3V3", "cell3:VCC", "red", [ "v0" ] ],
+    [ "esp:25", "cell3:DT", "green", [ "v0" ] ],
+    [ "esp:26", "cell3:SCK", "yellow", [ "v0" ] ],
+    [ "esp:27", "led3:A", "red", [ "v0" ] ],
+    [ "led3:C", "r3:1", "black", [ "v0" ] ],
+    [ "r3:2", "esp:GND.2", "black", [ "v0" ] ]
+  ]
+}

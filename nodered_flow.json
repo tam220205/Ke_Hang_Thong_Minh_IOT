@@ -1,0 +1,191 @@
+[
+  {
+    "id": "tab_smart_shelf",
+    "type": "tab",
+    "label": "Nhóm 22 - Smart Shelf",
+    "disabled": false,
+    "info": "Flow xử lý dữ liệu và cảnh báo Telegram cho hệ thống Kệ hàng thông minh"
+  },
+  {
+    "id": "mqtt_broker_hivemq",
+    "type": "mqtt-broker",
+    "name": "HiveMQ Public Broker",
+    "broker": "broker.hivemq.com",
+    "port": "1883",
+    "clientid": "NodeRED_Nhom22_Consumer",
+    "autoConnect": true,
+    "usetls": false,
+    "protocolVersion": "4",
+    "keepalive": "60",
+    "cleansession": true,
+    "autoUnsubscribe": true
+  },
+  {
+    "id": "mqtt_in_telemetry",
+    "type": "mqtt in",
+    "z": "tab_smart_shelf",
+    "name": "Nhận Telemetry ESP32",
+    "topic": "nhom22/smartshelf/telemetry",
+    "qos": "0",
+    "datatype": "json",
+    "broker": "mqtt_broker_hivemq",
+    "nl": false,
+    "rap": true,
+    "rh": 0,
+    "inputs": 0,
+    "x": 160,
+    "y": 140,
+    "wires": [
+      [
+        "debug_raw_data",
+        "fn_check_stock"
+      ]
+    ]
+  },
+  {
+    "id": "debug_raw_data",
+    "type": "debug",
+    "z": "tab_smart_shelf",
+    "name": "Debug Data",
+    "active": true,
+    "tosidebar": true,
+    "console": false,
+    "tostatus": false,
+    "complete": "payload",
+    "targetType": "msg",
+    "statusVal": "",
+    "statusType": "auto",
+    "x": 420,
+    "y": 80,
+    "wires": []
+  },
+  {
+    "id": "fn_check_stock",
+    "type": "function",
+    "z": "tab_smart_shelf",
+    "name": "Kiểm tra ngưỡng & Chống spam",
+    "func": "// Lưu trạng thái cảnh báo trước đó vào context của Node-RED\nlet lastAlerts = context.get('lastAlerts') || {};\nlet now = Date.now();\nlet interval = 5 * 60 * 1000; // Nhắc lại mỗi 5 phút\n\nlet shelves = msg.payload.shelves || [];\nlet alertMessages = [];\n\nfor (let shelf of shelves) {\n    if (shelf.low_stock) {\n        let lastTime = lastAlerts[shelf.id] || 0;\n        if (now - lastTime >= interval) {\n            alertMessages.push(`⚠️ *KỆ [${shelf.id}] - ${shelf.name}*: Còn ${shelf.qty} món (Tải trọng: ${shelf.weight}g, Ngưỡng: ${shelf.min})`);\n            lastAlerts[shelf.id] = now;\n        }\n    } else {\n        // Reset khi đã bổ sung hàng\n        delete lastAlerts[shelf.id];\n    }\n}\n\ncontext.set('lastAlerts', lastAlerts);\n\nif (alertMessages.length > 0) {\n    let text = `🚨 *[CẢNH BÁO KHO HÀNG - NHÓM 22]*\\n\\n` + alertMessages.join('\\n') + `\\n\\n👉 *Vui lòng tiếp thêm hàng vào kệ!*`;\n    \n    // Chuẩn bị payload gửi Telegram qua HTTP REST API\n    msg.payload = {\n        chat_id: \"8349343826\",\n        text: text,\n        parse_mode: \"Markdown\"\n    };\n    return msg;\n}\n\nreturn null;",
+    "outputs": 1,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 470,
+    "y": 200,
+    "wires": [
+      [
+        "http_telegram_alert"
+      ]
+    ]
+  },
+  {
+    "id": "http_telegram_alert",
+    "type": "http request",
+    "z": "tab_smart_shelf",
+    "name": "Gửi Telegram API",
+    "method": "POST",
+    "ret": "obj",
+    "paytoqs": "ignore",
+    "url": "https://api.telegram.org/bot8838533602:AAERwan30IWcSVd7wOiZlTo8A68JZ1M2hM0/sendMessage",
+    "tls": "",
+    "persist": false,
+    "proxy": "",
+    "insecureHTTPParser": false,
+    "authType": "",
+    "senderr": false,
+    "headers": [],
+    "x": 780,
+    "y": 200,
+    "wires": [
+      [
+        "debug_telegram_res"
+      ]
+    ]
+  },
+  {
+    "id": "debug_telegram_res",
+    "type": "debug",
+    "z": "tab_smart_shelf",
+    "name": "Kết quả gửi Telegram",
+    "active": true,
+    "tosidebar": true,
+    "console": false,
+    "tostatus": false,
+    "complete": "payload",
+    "targetType": "msg",
+    "statusVal": "",
+    "statusType": "auto",
+    "x": 1030,
+    "y": 200,
+    "wires": []
+  },
+  {
+    "id": "inject_tare_k1",
+    "type": "inject",
+    "z": "tab_smart_shelf",
+    "name": "Lệnh Tare Kệ 1",
+    "props": [
+      {
+        "p": "payload"
+      }
+    ],
+    "repeat": "",
+    "crontab": "",
+    "once": false,
+    "onceDelay": 0.1,
+    "topic": "",
+    "payload": "{\"cmd\":\"tare\",\"id\":\"K1\"}",
+    "payloadType": "json",
+    "x": 160,
+    "y": 320,
+    "wires": [
+      [
+        "mqtt_out_cmd"
+      ]
+    ]
+  },
+  {
+    "id": "inject_set_k1",
+    "type": "inject",
+    "z": "tab_smart_shelf",
+    "name": "Lệnh Cài đặt Kệ 1 (Pepsi)",
+    "props": [
+      {
+        "p": "payload"
+      }
+    ],
+    "repeat": "",
+    "crontab": "",
+    "once": false,
+    "onceDelay": 0.1,
+    "topic": "",
+    "payload": "{\"cmd\":\"set\",\"id\":\"K1\",\"name\":\"Pepsi\",\"unit\":330,\"min\":2}",
+    "payloadType": "json",
+    "x": 190,
+    "y": 380,
+    "wires": [
+      [
+        "mqtt_out_cmd"
+      ]
+    ]
+  },
+  {
+    "id": "mqtt_out_cmd",
+    "type": "mqtt out",
+    "z": "tab_smart_shelf",
+    "name": "Gửi lệnh Downlink",
+    "topic": "nhom22/smartshelf/cmd",
+    "qos": "0",
+    "retain": "false",
+    "respTopic": "",
+    "contentType": "",
+    "userProps": "",
+    "correl": "",
+    "expiry": "",
+    "broker": "mqtt_broker_hivemq",
+    "x": 480,
+    "y": 340,
+    "wires": []
+  }
+]
