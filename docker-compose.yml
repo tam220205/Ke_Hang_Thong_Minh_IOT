@@ -1,0 +1,53 @@
+version: '3.8'
+
+services:
+  # 1. Eclipse Mosquitto MQTT Broker (Hỗ trợ TCP 1883 & WebSocket 9001)
+  mosquitto:
+    image: eclipse-mosquitto:2
+    container_name: smartshelf_mosquitto
+    restart: unless-stopped
+    ports:
+      - "1883:1883"
+      - "9001:9001"
+    volumes:
+      - ./docker/mosquitto/config/mosquitto.conf:/mosquitto/config/mosquitto.conf:ro
+      - mosquitto_data:/mosquitto/data
+      - mosquitto_log:/mosquitto/log
+    networks:
+      - smartshelf_net
+
+  # 2. Node-RED IoT Engine (Quản lý 10 kệ hàng & Cảnh báo Telegram)
+  nodered:
+    image: nodered/node-red:latest
+    container_name: smartshelf_nodered
+    restart: unless-stopped
+    ports:
+      - "1880:1880"
+    environment:
+      - TZ=Asia/Ho_Chi_Minh
+    volumes:
+      - ./docker/nodered/data:/data
+    depends_on:
+      - mosquitto
+    networks:
+      - smartshelf_net
+
+  # 3. Web Dashboard Nginx (Giao diện Tiệm Tạp Hóa 4.0 - 10 Kệ Hàng)
+  dashboard:
+    image: nginx:alpine
+    container_name: smartshelf_dashboard
+    restart: unless-stopped
+    ports:
+      - "8088:80"
+    volumes:
+      - ./web:/usr/share/nginx/html:ro
+    networks:
+      - smartshelf_net
+
+networks:
+  smartshelf_net:
+    driver: bridge
+
+volumes:
+  mosquitto_data:
+  mosquitto_log:

@@ -1,51 +1,1246 @@
 {
   "version": 1,
-  "author": "Nhom 22 - Smart Shelf 3 Tiers",
+  "author": "Nhom 22 - Smart Grocery Store (10 Shelves with Dedicated OLED Displays & Clean Wiring)",
   "editor": "wokwi",
   "parts": [
-    { "type": "board-esp32-devkit-c-v4", "id": "esp", "top": 40, "left": -20, "attrs": {} },
-    { "type": "board-ssd1306", "id": "oled", "top": -160, "left": -20, "attrs": { "i2cAddress": "0x3c" } },
-
-    { "type": "wokwi-hx711", "id": "cell1", "top": -120, "left": -320, "attrs": {} },
-    { "type": "wokwi-led", "id": "led1", "top": 60, "left": -260, "attrs": { "color": "red", "label": "K1" } },
-    { "type": "wokwi-resistor", "id": "r1", "top": 110, "left": -260, "attrs": { "value": "220" } },
-
-    { "type": "wokwi-hx711", "id": "cell2", "top": 180, "left": -320, "attrs": {} },
-    { "type": "wokwi-led", "id": "led2", "top": 360, "left": -260, "attrs": { "color": "red", "label": "K2" } },
-    { "type": "wokwi-resistor", "id": "r2", "top": 410, "left": -260, "attrs": { "value": "220" } },
-
-    { "type": "wokwi-hx711", "id": "cell3", "top": -120, "left": 220, "attrs": {} },
-    { "type": "wokwi-led", "id": "led3", "top": 60, "left": 260, "attrs": { "color": "red", "label": "K3" } },
-    { "type": "wokwi-resistor", "id": "r3", "top": 110, "left": 260, "attrs": { "value": "220" } }
+    {
+      "type": "board-esp32-devkit-c-v4",
+      "id": "esp",
+      "top": 120,
+      "left": -40,
+      "attrs": {}
+    },
+    {
+      "type": "wokwi-hx711",
+      "id": "cell1",
+      "top": -260,
+      "left": -620,
+      "attrs": {}
+    },
+    {
+      "type": "board-ssd1306",
+      "id": "oled1",
+      "top": -270,
+      "left": -340,
+      "attrs": {
+        "i2cAddress": "0x30"
+      }
+    },
+    {
+      "type": "wokwi-led",
+      "id": "led1",
+      "top": -220,
+      "left": -480,
+      "attrs": {
+        "color": "red",
+        "label": "K01:Coca"
+      }
+    },
+    {
+      "type": "wokwi-resistor",
+      "id": "r1",
+      "top": -170,
+      "left": -480,
+      "attrs": {
+        "value": "220"
+      }
+    },
+    {
+      "type": "wokwi-hx711",
+      "id": "cell2",
+      "top": -90,
+      "left": -620,
+      "attrs": {}
+    },
+    {
+      "type": "board-ssd1306",
+      "id": "oled2",
+      "top": -100,
+      "left": -340,
+      "attrs": {
+        "i2cAddress": "0x31"
+      }
+    },
+    {
+      "type": "wokwi-led",
+      "id": "led2",
+      "top": -50,
+      "left": -480,
+      "attrs": {
+        "color": "red",
+        "label": "K02:HaoHao"
+      }
+    },
+    {
+      "type": "wokwi-resistor",
+      "id": "r2",
+      "top": 0,
+      "left": -480,
+      "attrs": {
+        "value": "220"
+      }
+    },
+    {
+      "type": "wokwi-hx711",
+      "id": "cell3",
+      "top": 80,
+      "left": -620,
+      "attrs": {}
+    },
+    {
+      "type": "board-ssd1306",
+      "id": "oled3",
+      "top": 70,
+      "left": -340,
+      "attrs": {
+        "i2cAddress": "0x32"
+      }
+    },
+    {
+      "type": "wokwi-led",
+      "id": "led3",
+      "top": 120,
+      "left": -480,
+      "attrs": {
+        "color": "red",
+        "label": "K03:Oishi"
+      }
+    },
+    {
+      "type": "wokwi-resistor",
+      "id": "r3",
+      "top": 170,
+      "left": -480,
+      "attrs": {
+        "value": "220"
+      }
+    },
+    {
+      "type": "wokwi-hx711",
+      "id": "cell4",
+      "top": 250,
+      "left": -620,
+      "attrs": {}
+    },
+    {
+      "type": "board-ssd1306",
+      "id": "oled4",
+      "top": 240,
+      "left": -340,
+      "attrs": {
+        "i2cAddress": "0x33"
+      }
+    },
+    {
+      "type": "wokwi-led",
+      "id": "led4",
+      "top": 290,
+      "left": -480,
+      "attrs": {
+        "color": "red",
+        "label": "K04:Vinamilk"
+      }
+    },
+    {
+      "type": "wokwi-resistor",
+      "id": "r4",
+      "top": 340,
+      "left": -480,
+      "attrs": {
+        "value": "220"
+      }
+    },
+    {
+      "type": "wokwi-hx711",
+      "id": "cell5",
+      "top": 420,
+      "left": -620,
+      "attrs": {}
+    },
+    {
+      "type": "board-ssd1306",
+      "id": "oled5",
+      "top": 410,
+      "left": -340,
+      "attrs": {
+        "i2cAddress": "0x34"
+      }
+    },
+    {
+      "type": "wokwi-led",
+      "id": "led5",
+      "top": 460,
+      "left": -480,
+      "attrs": {
+        "color": "red",
+        "label": "K05:OMO"
+      }
+    },
+    {
+      "type": "wokwi-resistor",
+      "id": "r5",
+      "top": 510,
+      "left": -480,
+      "attrs": {
+        "value": "220"
+      }
+    },
+    {
+      "type": "wokwi-hx711",
+      "id": "cell6",
+      "top": -260,
+      "left": 420,
+      "attrs": {}
+    },
+    {
+      "type": "board-ssd1306",
+      "id": "oled6",
+      "top": -270,
+      "left": 130,
+      "attrs": {
+        "i2cAddress": "0x35"
+      }
+    },
+    {
+      "type": "wokwi-led",
+      "id": "led6",
+      "top": -220,
+      "left": 310,
+      "attrs": {
+        "color": "red",
+        "label": "K06:Simply"
+      }
+    },
+    {
+      "type": "wokwi-resistor",
+      "id": "r6",
+      "top": -170,
+      "left": 310,
+      "attrs": {
+        "value": "220"
+      }
+    },
+    {
+      "type": "wokwi-hx711",
+      "id": "cell7",
+      "top": -90,
+      "left": 420,
+      "attrs": {}
+    },
+    {
+      "type": "board-ssd1306",
+      "id": "oled7",
+      "top": -100,
+      "left": 130,
+      "attrs": {
+        "i2cAddress": "0x36"
+      }
+    },
+    {
+      "type": "wokwi-led",
+      "id": "led7",
+      "top": -50,
+      "left": 310,
+      "attrs": {
+        "color": "red",
+        "label": "K07:NamNgu"
+      }
+    },
+    {
+      "type": "wokwi-resistor",
+      "id": "r7",
+      "top": 0,
+      "left": 310,
+      "attrs": {
+        "value": "220"
+      }
+    },
+    {
+      "type": "wokwi-hx711",
+      "id": "cell8",
+      "top": 80,
+      "left": 420,
+      "attrs": {}
+    },
+    {
+      "type": "board-ssd1306",
+      "id": "oled8",
+      "top": 70,
+      "left": 130,
+      "attrs": {
+        "i2cAddress": "0x37"
+      }
+    },
+    {
+      "type": "wokwi-led",
+      "id": "led8",
+      "top": 120,
+      "left": 310,
+      "attrs": {
+        "color": "red",
+        "label": "K08:Chocopie"
+      }
+    },
+    {
+      "type": "wokwi-resistor",
+      "id": "r8",
+      "top": 170,
+      "left": 310,
+      "attrs": {
+        "value": "220"
+      }
+    },
+    {
+      "type": "wokwi-hx711",
+      "id": "cell9",
+      "top": 250,
+      "left": 420,
+      "attrs": {}
+    },
+    {
+      "type": "board-ssd1306",
+      "id": "oled9",
+      "top": 240,
+      "left": 130,
+      "attrs": {
+        "i2cAddress": "0x38"
+      }
+    },
+    {
+      "type": "wokwi-led",
+      "id": "led9",
+      "top": 290,
+      "left": 310,
+      "attrs": {
+        "color": "red",
+        "label": "K09:TrungGa"
+      }
+    },
+    {
+      "type": "wokwi-resistor",
+      "id": "r9",
+      "top": 340,
+      "left": 310,
+      "attrs": {
+        "value": "220"
+      }
+    },
+    {
+      "type": "wokwi-hx711",
+      "id": "cell10",
+      "top": 420,
+      "left": 420,
+      "attrs": {}
+    },
+    {
+      "type": "board-ssd1306",
+      "id": "oled10",
+      "top": 410,
+      "left": 130,
+      "attrs": {
+        "i2cAddress": "0x39"
+      }
+    },
+    {
+      "type": "wokwi-led",
+      "id": "led10",
+      "top": 460,
+      "left": 310,
+      "attrs": {
+        "color": "red",
+        "label": "K10:Chinsu"
+      }
+    },
+    {
+      "type": "wokwi-resistor",
+      "id": "r10",
+      "top": 510,
+      "left": 310,
+      "attrs": {
+        "value": "220"
+      }
+    }
   ],
   "connections": [
-    [ "esp:GND.1", "oled:GND", "black", [ "v0" ] ],
-    [ "esp:3V3", "oled:VCC", "red", [ "v0" ] ],
-    [ "esp:22", "oled:SCL", "blue", [ "v0" ] ],
-    [ "esp:21", "oled:SDA", "orange", [ "v0" ] ],
-
-    [ "esp:GND.1", "cell1:GND", "black", [ "v0" ] ],
-    [ "esp:3V3", "cell1:VCC", "red", [ "v0" ] ],
-    [ "esp:19", "cell1:DT", "green", [ "v0" ] ],
-    [ "esp:18", "cell1:SCK", "yellow", [ "v0" ] ],
-    [ "esp:2", "led1:A", "red", [ "v0" ] ],
-    [ "led1:C", "r1:1", "black", [ "v0" ] ],
-    [ "r1:2", "esp:GND.1", "black", [ "v0" ] ],
-
-    [ "esp:GND.2", "cell2:GND", "black", [ "v0" ] ],
-    [ "esp:3V3", "cell2:VCC", "red", [ "v0" ] ],
-    [ "esp:5", "cell2:DT", "green", [ "v0" ] ],
-    [ "esp:17", "cell2:SCK", "yellow", [ "v0" ] ],
-    [ "esp:4", "led2:A", "red", [ "v0" ] ],
-    [ "led2:C", "r2:1", "black", [ "v0" ] ],
-    [ "r2:2", "esp:GND.2", "black", [ "v0" ] ],
-
-    [ "esp:GND.2", "cell3:GND", "black", [ "v0" ] ],
-    [ "esp:3V3", "cell3:VCC", "red", [ "v0" ] ],
-    [ "esp:25", "cell3:DT", "green", [ "v0" ] ],
-    [ "esp:26", "cell3:SCK", "yellow", [ "v0" ] ],
-    [ "esp:27", "led3:A", "red", [ "v0" ] ],
-    [ "led3:C", "r3:1", "black", [ "v0" ] ],
-    [ "r3:2", "esp:GND.2", "black", [ "v0" ] ]
+    [
+      "esp:3V3",
+      "cell1:VCC",
+      "red",
+      [
+        "v0"
+      ]
+    ],
+    [
+      "cell1:VCC",
+      "oled1:VCC",
+      "red",
+      [
+        "v0"
+      ]
+    ],
+    [
+      "esp:GND.1",
+      "cell1:GND",
+      "black",
+      [
+        "v0"
+      ]
+    ],
+    [
+      "cell1:GND",
+      "oled1:GND",
+      "black",
+      [
+        "v0"
+      ]
+    ],
+    [
+      "oled1:GND",
+      "r1:2",
+      "black",
+      [
+        "v0"
+      ]
+    ],
+    [
+      "cell1:VCC",
+      "cell2:VCC",
+      "red",
+      [
+        "v0"
+      ]
+    ],
+    [
+      "cell2:VCC",
+      "oled2:VCC",
+      "red",
+      [
+        "v0"
+      ]
+    ],
+    [
+      "cell1:GND",
+      "cell2:GND",
+      "black",
+      [
+        "v0"
+      ]
+    ],
+    [
+      "cell2:GND",
+      "oled2:GND",
+      "black",
+      [
+        "v0"
+      ]
+    ],
+    [
+      "oled2:GND",
+      "r2:2",
+      "black",
+      [
+        "v0"
+      ]
+    ],
+    [
+      "cell2:VCC",
+      "cell3:VCC",
+      "red",
+      [
+        "v0"
+      ]
+    ],
+    [
+      "cell3:VCC",
+      "oled3:VCC",
+      "red",
+      [
+        "v0"
+      ]
+    ],
+    [
+      "cell2:GND",
+      "cell3:GND",
+      "black",
+      [
+        "v0"
+      ]
+    ],
+    [
+      "cell3:GND",
+      "oled3:GND",
+      "black",
+      [
+        "v0"
+      ]
+    ],
+    [
+      "oled3:GND",
+      "r3:2",
+      "black",
+      [
+        "v0"
+      ]
+    ],
+    [
+      "cell3:VCC",
+      "cell4:VCC",
+      "red",
+      [
+        "v0"
+      ]
+    ],
+    [
+      "cell4:VCC",
+      "oled4:VCC",
+      "red",
+      [
+        "v0"
+      ]
+    ],
+    [
+      "cell3:GND",
+      "cell4:GND",
+      "black",
+      [
+        "v0"
+      ]
+    ],
+    [
+      "cell4:GND",
+      "oled4:GND",
+      "black",
+      [
+        "v0"
+      ]
+    ],
+    [
+      "oled4:GND",
+      "r4:2",
+      "black",
+      [
+        "v0"
+      ]
+    ],
+    [
+      "cell4:VCC",
+      "cell5:VCC",
+      "red",
+      [
+        "v0"
+      ]
+    ],
+    [
+      "cell5:VCC",
+      "oled5:VCC",
+      "red",
+      [
+        "v0"
+      ]
+    ],
+    [
+      "cell4:GND",
+      "cell5:GND",
+      "black",
+      [
+        "v0"
+      ]
+    ],
+    [
+      "cell5:GND",
+      "oled5:GND",
+      "black",
+      [
+        "v0"
+      ]
+    ],
+    [
+      "oled5:GND",
+      "r5:2",
+      "black",
+      [
+        "v0"
+      ]
+    ],
+    [
+      "esp:3V3",
+      "cell6:VCC",
+      "red",
+      [
+        "v0"
+      ]
+    ],
+    [
+      "cell6:VCC",
+      "oled6:VCC",
+      "red",
+      [
+        "v0"
+      ]
+    ],
+    [
+      "esp:GND.2",
+      "cell6:GND",
+      "black",
+      [
+        "v0"
+      ]
+    ],
+    [
+      "cell6:GND",
+      "oled6:GND",
+      "black",
+      [
+        "v0"
+      ]
+    ],
+    [
+      "oled6:GND",
+      "r6:2",
+      "black",
+      [
+        "v0"
+      ]
+    ],
+    [
+      "cell6:VCC",
+      "cell7:VCC",
+      "red",
+      [
+        "v0"
+      ]
+    ],
+    [
+      "cell7:VCC",
+      "oled7:VCC",
+      "red",
+      [
+        "v0"
+      ]
+    ],
+    [
+      "cell6:GND",
+      "cell7:GND",
+      "black",
+      [
+        "v0"
+      ]
+    ],
+    [
+      "cell7:GND",
+      "oled7:GND",
+      "black",
+      [
+        "v0"
+      ]
+    ],
+    [
+      "oled7:GND",
+      "r7:2",
+      "black",
+      [
+        "v0"
+      ]
+    ],
+    [
+      "cell7:VCC",
+      "cell8:VCC",
+      "red",
+      [
+        "v0"
+      ]
+    ],
+    [
+      "cell8:VCC",
+      "oled8:VCC",
+      "red",
+      [
+        "v0"
+      ]
+    ],
+    [
+      "cell7:GND",
+      "cell8:GND",
+      "black",
+      [
+        "v0"
+      ]
+    ],
+    [
+      "cell8:GND",
+      "oled8:GND",
+      "black",
+      [
+        "v0"
+      ]
+    ],
+    [
+      "oled8:GND",
+      "r8:2",
+      "black",
+      [
+        "v0"
+      ]
+    ],
+    [
+      "cell8:VCC",
+      "cell9:VCC",
+      "red",
+      [
+        "v0"
+      ]
+    ],
+    [
+      "cell9:VCC",
+      "oled9:VCC",
+      "red",
+      [
+        "v0"
+      ]
+    ],
+    [
+      "cell8:GND",
+      "cell9:GND",
+      "black",
+      [
+        "v0"
+      ]
+    ],
+    [
+      "cell9:GND",
+      "oled9:GND",
+      "black",
+      [
+        "v0"
+      ]
+    ],
+    [
+      "oled9:GND",
+      "r9:2",
+      "black",
+      [
+        "v0"
+      ]
+    ],
+    [
+      "cell9:VCC",
+      "cell10:VCC",
+      "red",
+      [
+        "v0"
+      ]
+    ],
+    [
+      "cell10:VCC",
+      "oled10:VCC",
+      "red",
+      [
+        "v0"
+      ]
+    ],
+    [
+      "cell9:GND",
+      "cell10:GND",
+      "black",
+      [
+        "v0"
+      ]
+    ],
+    [
+      "cell10:GND",
+      "oled10:GND",
+      "black",
+      [
+        "v0"
+      ]
+    ],
+    [
+      "oled10:GND",
+      "r10:2",
+      "black",
+      [
+        "v0"
+      ]
+    ],
+    [
+      "esp:18",
+      "cell1:SCK",
+      "yellow",
+      [
+        "v0"
+      ]
+    ],
+    [
+      "cell1:SCK",
+      "cell2:SCK",
+      "yellow",
+      [
+        "v0"
+      ]
+    ],
+    [
+      "cell2:SCK",
+      "cell3:SCK",
+      "yellow",
+      [
+        "v0"
+      ]
+    ],
+    [
+      "cell3:SCK",
+      "cell4:SCK",
+      "yellow",
+      [
+        "v0"
+      ]
+    ],
+    [
+      "cell4:SCK",
+      "cell5:SCK",
+      "yellow",
+      [
+        "v0"
+      ]
+    ],
+    [
+      "cell1:SCK",
+      "cell6:SCK",
+      "yellow",
+      [
+        "v0"
+      ]
+    ],
+    [
+      "cell6:SCK",
+      "cell7:SCK",
+      "yellow",
+      [
+        "v0"
+      ]
+    ],
+    [
+      "cell7:SCK",
+      "cell8:SCK",
+      "yellow",
+      [
+        "v0"
+      ]
+    ],
+    [
+      "cell8:SCK",
+      "cell9:SCK",
+      "yellow",
+      [
+        "v0"
+      ]
+    ],
+    [
+      "cell9:SCK",
+      "cell10:SCK",
+      "yellow",
+      [
+        "v0"
+      ]
+    ],
+    [
+      "esp:21",
+      "oled1:SDA",
+      "orange",
+      [
+        "v0"
+      ]
+    ],
+    [
+      "esp:22",
+      "oled1:SCL",
+      "blue",
+      [
+        "v0"
+      ]
+    ],
+    [
+      "oled1:SDA",
+      "oled2:SDA",
+      "orange",
+      [
+        "v0"
+      ]
+    ],
+    [
+      "oled1:SCL",
+      "oled2:SCL",
+      "blue",
+      [
+        "v0"
+      ]
+    ],
+    [
+      "oled2:SDA",
+      "oled3:SDA",
+      "orange",
+      [
+        "v0"
+      ]
+    ],
+    [
+      "oled2:SCL",
+      "oled3:SCL",
+      "blue",
+      [
+        "v0"
+      ]
+    ],
+    [
+      "oled3:SDA",
+      "oled4:SDA",
+      "orange",
+      [
+        "v0"
+      ]
+    ],
+    [
+      "oled3:SCL",
+      "oled4:SCL",
+      "blue",
+      [
+        "v0"
+      ]
+    ],
+    [
+      "oled4:SDA",
+      "oled5:SDA",
+      "orange",
+      [
+        "v0"
+      ]
+    ],
+    [
+      "oled4:SCL",
+      "oled5:SCL",
+      "blue",
+      [
+        "v0"
+      ]
+    ],
+    [
+      "oled1:SDA",
+      "oled6:SDA",
+      "orange",
+      [
+        "v0"
+      ]
+    ],
+    [
+      "oled1:SCL",
+      "oled6:SCL",
+      "blue",
+      [
+        "v0"
+      ]
+    ],
+    [
+      "oled6:SDA",
+      "oled7:SDA",
+      "orange",
+      [
+        "v0"
+      ]
+    ],
+    [
+      "oled6:SCL",
+      "oled7:SCL",
+      "blue",
+      [
+        "v0"
+      ]
+    ],
+    [
+      "oled7:SDA",
+      "oled8:SDA",
+      "orange",
+      [
+        "v0"
+      ]
+    ],
+    [
+      "oled7:SCL",
+      "oled8:SCL",
+      "blue",
+      [
+        "v0"
+      ]
+    ],
+    [
+      "oled8:SDA",
+      "oled9:SDA",
+      "orange",
+      [
+        "v0"
+      ]
+    ],
+    [
+      "oled8:SCL",
+      "oled9:SCL",
+      "blue",
+      [
+        "v0"
+      ]
+    ],
+    [
+      "oled9:SDA",
+      "oled10:SDA",
+      "orange",
+      [
+        "v0"
+      ]
+    ],
+    [
+      "oled9:SCL",
+      "oled10:SCL",
+      "blue",
+      [
+        "v0"
+      ]
+    ],
+    [
+      "esp:19",
+      "cell1:DT",
+      "green",
+      [
+        "v0"
+      ]
+    ],
+    [
+      "esp:2",
+      "led1:A",
+      "magenta",
+      [
+        "v0"
+      ]
+    ],
+    [
+      "led1:C",
+      "r1:1",
+      "black",
+      [
+        "v0"
+      ]
+    ],
+    [
+      "esp:5",
+      "cell2:DT",
+      "green",
+      [
+        "v0"
+      ]
+    ],
+    [
+      "esp:4",
+      "led2:A",
+      "magenta",
+      [
+        "v0"
+      ]
+    ],
+    [
+      "led2:C",
+      "r2:1",
+      "black",
+      [
+        "v0"
+      ]
+    ],
+    [
+      "esp:23",
+      "cell3:DT",
+      "green",
+      [
+        "v0"
+      ]
+    ],
+    [
+      "esp:27",
+      "led3:A",
+      "magenta",
+      [
+        "v0"
+      ]
+    ],
+    [
+      "led3:C",
+      "r3:1",
+      "black",
+      [
+        "v0"
+      ]
+    ],
+    [
+      "esp:17",
+      "cell4:DT",
+      "green",
+      [
+        "v0"
+      ]
+    ],
+    [
+      "esp:14",
+      "led4:A",
+      "magenta",
+      [
+        "v0"
+      ]
+    ],
+    [
+      "led4:C",
+      "r4:1",
+      "black",
+      [
+        "v0"
+      ]
+    ],
+    [
+      "esp:16",
+      "cell5:DT",
+      "green",
+      [
+        "v0"
+      ]
+    ],
+    [
+      "esp:12",
+      "led5:A",
+      "magenta",
+      [
+        "v0"
+      ]
+    ],
+    [
+      "led5:C",
+      "r5:1",
+      "black",
+      [
+        "v0"
+      ]
+    ],
+    [
+      "esp:32",
+      "cell6:DT",
+      "green",
+      [
+        "v0"
+      ]
+    ],
+    [
+      "esp:13",
+      "led6:A",
+      "magenta",
+      [
+        "v0"
+      ]
+    ],
+    [
+      "led6:C",
+      "r6:1",
+      "black",
+      [
+        "v0"
+      ]
+    ],
+    [
+      "esp:36",
+      "cell7:DT",
+      "green",
+      [
+        "v0"
+      ]
+    ],
+    [
+      "esp:15",
+      "led7:A",
+      "magenta",
+      [
+        "v0"
+      ]
+    ],
+    [
+      "led7:C",
+      "r7:1",
+      "black",
+      [
+        "v0"
+      ]
+    ],
+    [
+      "esp:34",
+      "cell8:DT",
+      "green",
+      [
+        "v0"
+      ]
+    ],
+    [
+      "esp:25",
+      "led8:A",
+      "magenta",
+      [
+        "v0"
+      ]
+    ],
+    [
+      "led8:C",
+      "r8:1",
+      "black",
+      [
+        "v0"
+      ]
+    ],
+    [
+      "esp:35",
+      "cell9:DT",
+      "green",
+      [
+        "v0"
+      ]
+    ],
+    [
+      "esp:26",
+      "led9:A",
+      "magenta",
+      [
+        "v0"
+      ]
+    ],
+    [
+      "led9:C",
+      "r9:1",
+      "black",
+      [
+        "v0"
+      ]
+    ],
+    [
+      "esp:39",
+      "cell10:DT",
+      "green",
+      [
+        "v0"
+      ]
+    ],
+    [
+      "esp:33",
+      "led10:A",
+      "magenta",
+      [
+        "v0"
+      ]
+    ],
+    [
+      "led10:C",
+      "r10:1",
+      "black",
+      [
+        "v0"
+      ]
+    ]
   ]
 }

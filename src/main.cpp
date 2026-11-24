@@ -4,17 +4,24 @@
 #include <Wire.h>
 #include <Adafruit_GFX.h>
 #include <Adafruit_SSD1306.h>
-#include "HX711.h"
 #include <PubSubClient.h>
 #include <ArduinoJson.h>
 #include <Preferences.h>
 
 // ==========================================
-// 1. CẤU HÌNH PHẦN CỨNG & MÀN HÌNH OLED
+// 1. CẤU HÌNH 10 MÀN HÌNH OLED RIÊNG BIỆT (ESL)
 // ==========================================
 #define SCREEN_WIDTH 128
 #define SCREEN_HEIGHT 64
-Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, -1);
+
+// 10 Con trỏ Màn hình OLED riêng cho 10 Kệ hàng (Electronic Shelf Labels - ESL)
+Adafruit_SSD1306* oleds[10];
+
+// 10 Địa chỉ I2C riêng biệt trên Bus I2C chung (GPIO 21 SDA, GPIO 22 SCL)
+const uint8_t OLED_ADDRS[10] = {
+  0x30, 0x31, 0x32, 0x33, 0x34,
+  0x35, 0x36, 0x37, 0x38, 0x39
+};
 
 // ==========================================
 // 2. CẤU HÌNH MẠNG WIFI & MQTT BROKER
@@ -22,72 +29,90 @@ Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, -1);
 const char* ssid = "Wokwi-GUEST";
 const char* password = "";
 
-// Sử dụng HiveMQ Public Broker miễn phí, ổn định cao cho mô phỏng & mạch thật
 const char* mqtt_server = "broker.hivemq.com";
 const int   mqtt_port   = 1883;
 
-// Các MQTT Topics theo chuẩn quy ước Tầng 2
-const char* TOPIC_TELEMETRY = "nhom22/smartshelf/telemetry"; // ESP32 -> Broker -> Node-RED
-const char* TOPIC_CMD       = "nhom22/smartshelf/cmd";       // Node-RED / Dashboard -> ESP32
+const char* TOPIC_TELEMETRY = "nhom22/smartshelf/telemetry"; // ESP32 -> Broker -> Web/Node-RED
+const char* TOPIC_CMD       = "nhom22/smartshelf/cmd";       // Web/Node-RED -> ESP32
 
 WiFiClient espClient;
 PubSubClient mqttClient(espClient);
 Preferences prefs;
 
 // ==========================================
-// 3. CẤU HÌNH TELEGRAM BOT TRỰC TIẾP TỪ ESP32
+// 3. CẤU HÌNH TELEGRAM BOT TRỰC TIẾP
 // ==========================================
 const char* BOT_TOKEN = "8838533602:AAERwan30IWcSVd7wOiZlTo8A68JZ1M2hM0";
-const char* CHAT_ID   = "8349343826";
+const char* CHAT_IDS[] = {
+  "8349343826",
+  "7982908394"
+};
+const int NUM_USERS = sizeof(CHAT_IDS) / sizeof(CHAT_IDS[0]);
 
 WiFiClientSecure secured_client;
 UniversalTelegramBot bot(BOT_TOKEN, secured_client);
 
+void sendTelegramToAll(const String& message, const String& parseMode = "Markdown") {
+  for (int u = 0; u < NUM_USERS; u++) {
+    bot.sendMessage(CHAT_IDS[u], message, parseMode);
+    delay(150);
+  }
+}
+
 unsigned long lastTelegramCheck = 0;
-const unsigned long telegramCheckInterval = 3500; // Kiểm tra tin nhắn Telegram mỗi 3.5 giây
+const unsigned long telegramCheckInterval = 3500;
 
 // ==========================================
-// 4. ĐỊNH NGHĨA CẤU TRÚC KỆ HÀNG (3 KỆ)
+// 4. ĐỊNH NGHĨA 10 KỆ HÀNG TRÊN SƠ ĐỒ WOKWI
 // ==========================================
 struct Shelf {
-  const char* id;          // "K1", "K2", "K3"
-  String name;             // Tên sản phẩm
+  const char* id;          // "K01" .. "K10"
+  String name;             // Tên sản phẩm tạp hóa
   float unit_weight;       // Khối lượng 1 đơn vị (gram)
   int min_qty;             // Ngưỡng báo động số lượng
-  int dout_pin;
-  int sck_pin;
-  int led_pin;
-  HX711 scale;
+  int dout_pin;            // Chân DT riêng biệt
+  int sck_pin;             // Chân SCK chung (GPIO 18)
+  int led_pin;             // Chân điều khiển LED cảnh báo
+  long tare_offset;        // Offset hiệu chuẩn 0g
   float current_weight;    // gram
-  int current_qty;
-  bool is_low_stock;
-  bool last_alert_sent;    // Đã gửi thông báo cảnh báo qua Telegram chưa
-  unsigned long last_alert_time; // Thời điểm gửi thông báo gần nhất (ms)
+  int current_qty;         // số lượng hiện tại
+  bool is_low_stock;       // cờ thiếu hàng
+  bool last_alert_sent;    // cờ đã báo Telegram
+  unsigned long last_alert_time;
 };
 
-// 3 Kệ hàng quản lý bởi ESP32
-Shelf shelves[3] = {
-  {"K1", "Coca",      330.0, 3, 19, 18, 2,  HX711(), 0.0, 0, false, false, 0},
-  {"K2", "BanhOishi",  50.0, 5,  5, 17, 4,  HX711(), 0.0, 0, false, false, 0},
-  {"K3", "MiHaoHao",   75.0, 4, 25, 26, 27, HX711(), 0.0, 0, false, false, 0}
+// Chân Clock SCK chung cho toàn bộ 10 module HX711 trên sơ đồ Wokwi
+const int HX711_COMMON_SCK = 18;
+
+// Danh sách 10 Kệ hàng khớp 100% với sơ đồ diagram.json
+Shelf shelves[10] = {
+  {"K01", "Coca-Cola", 330.0, 3, 19, HX711_COMMON_SCK, 2,  0, 0.0, 0, false, false, 0},
+  {"K02", "HaoHao",     75.0, 5,  5, HX711_COMMON_SCK, 4,  0, 0.0, 0, false, false, 0},
+  {"K03", "Oishi",      50.0, 4, 23, HX711_COMMON_SCK, 27, 0, 0.0, 0, false, false, 0},
+  {"K04", "Vinamilk",  190.0, 4, 17, HX711_COMMON_SCK, 14, 0, 0.0, 0, false, false, 0},
+  {"K05", "OMO",       800.0, 2, 16, HX711_COMMON_SCK, 12, 0, 0.0, 0, false, false, 0},
+  {"K06", "Simply",    920.0, 3, 32, HX711_COMMON_SCK, 13, 0, 0.0, 0, false, false, 0},
+  {"K07", "NamNgu",    550.0, 3, 36, HX711_COMMON_SCK, 15, 0, 0.0, 0, false, false, 0},
+  {"K08", "Chocopie",  198.0, 2, 34, HX711_COMMON_SCK, 25, 0, 0.0, 0, false, false, 0},
+  {"K09", "TrungGa",   600.0, 2, 35, HX711_COMMON_SCK, 26, 0, 0.0, 0, false, false, 0},
+  {"K10", "Chinsu",    280.0, 3, 39, HX711_COMMON_SCK, 33, 0, 0.0, 0, false, false, 0}
 };
 
-// Chu kỳ thời gian
 unsigned long lastTelemetryTime = 0;
-const unsigned long telemetryInterval = 2500; // Gửi dữ liệu MQTT mỗi 2.5 giây
+const unsigned long telemetryInterval = 2500; // Gửi MQTT mỗi 2.5s
 
 unsigned long lastMqttReconnectAttempt = 0;
-const unsigned long mqttReconnectInterval = 5000; // Thử kết nối lại MQTT mỗi 5 giây
+const unsigned long mqttReconnectInterval = 5000;
 
 // ==========================================
-// 5. LƯU & ĐỌC CẤU HÌNH TỪ BỘ NHỚ FLASH (PREFERENCES)
+// 5. LƯU & ĐỌC CẤU HÌNH FLASH (PREFERENCES)
 // ==========================================
 void loadPreferences() {
-  prefs.begin("smartshelf", true);
-  for (int i = 0; i < 3; i++) {
-    String keyName = String(shelves[i].id) + "_name";
-    String keyUnit = String(shelves[i].id) + "_unit";
-    String keyMin  = String(shelves[i].id) + "_min";
+  prefs.begin("taphoa10", true);
+  for (int i = 0; i < 10; i++) {
+    String keyName = String(shelves[i].id) + "_n";
+    String keyUnit = String(shelves[i].id) + "_u";
+    String keyMin  = String(shelves[i].id) + "_m";
 
     if (prefs.isKey(keyName.c_str())) shelves[i].name = prefs.getString(keyName.c_str(), shelves[i].name);
     if (prefs.isKey(keyUnit.c_str())) shelves[i].unit_weight = prefs.getFloat(keyUnit.c_str(), shelves[i].unit_weight);
@@ -97,10 +122,10 @@ void loadPreferences() {
 }
 
 void saveShelfConfig(int index) {
-  prefs.begin("smartshelf", false);
-  String keyName = String(shelves[index].id) + "_name";
-  String keyUnit = String(shelves[index].id) + "_unit";
-  String keyMin  = String(shelves[index].id) + "_min";
+  prefs.begin("taphoa10", false);
+  String keyName = String(shelves[index].id) + "_n";
+  String keyUnit = String(shelves[index].id) + "_u";
+  String keyMin  = String(shelves[index].id) + "_m";
 
   prefs.putString(keyName.c_str(), shelves[index].name);
   prefs.putFloat(keyUnit.c_str(), shelves[index].unit_weight);
@@ -109,67 +134,116 @@ void saveShelfConfig(int index) {
 }
 
 // ==========================================
-// 6. CẬP NHẬT MÀN HÌNH OLED
+// 6. ĐỌC ĐỒNG THỜI 10 CẢM BIẾN HX711 (SIÊU TỐC ~50us)
 // ==========================================
-void updateDisplay() {
-  display.clearDisplay();
-  display.setTextColor(WHITE);
-
-  // Dòng 1: Tiêu đề + Trạng thái kết nối MQTT
-  display.setTextSize(1);
-  display.setCursor(0, 0);
-  display.print("SMART SHELF");
-  display.setCursor(76, 0);
-  if (mqttClient.connected()) {
-    display.print("[MQTT:OK]");
-  } else {
-    display.print("[MQTT:NO]");
+void readAllScales() {
+  // Chờ cảm biến ổn định dữ liệu
+  unsigned long start = millis();
+  while (digitalRead(shelves[0].dout_pin) == HIGH && (millis() - start < 35)) {
+    delayMicroseconds(100);
   }
-  display.drawLine(0, 10, 127, 10, WHITE);
 
-  // Dòng 2-4: Thông tin 3 Kệ hàng
-  for (int i = 0; i < 3; i++) {
-    int y = 14 + (i * 14);
-    display.setCursor(0, y);
-    display.printf("%s:%-6.6s", shelves[i].id, shelves[i].name.c_str());
+  long raw[10] = {0};
 
-    display.setCursor(68, y);
-    if (shelves[i].is_low_stock) {
-      display.printf("!%2dd(%dg)", shelves[i].current_qty, (int)shelves[i].current_weight);
-    } else {
-      display.printf(" %2dd(%dg)", shelves[i].current_qty, (int)shelves[i].current_weight);
+  // Phát 24 xung nhịp chung trên GPIO 18 và đồng thời đọc 10 chân DT
+  for (int b = 0; b < 24; b++) {
+    digitalWrite(HX711_COMMON_SCK, HIGH);
+    delayMicroseconds(1);
+    for (int i = 0; i < 10; i++) {
+      raw[i] = (raw[i] << 1) | digitalRead(shelves[i].dout_pin);
     }
+    digitalWrite(HX711_COMMON_SCK, LOW);
+    delayMicroseconds(1);
   }
 
-  // Chân trang: Đếm số kệ cần nhập hàng
-  display.drawLine(0, 54, 127, 54, WHITE);
-  display.setCursor(0, 56);
-  int alertCount = 0;
-  for (int i = 0; i < 3; i++) {
-    if (shelves[i].is_low_stock) alertCount++;
+  // Xung thứ 25 đặt Channel A, Gain 128
+  digitalWrite(HX711_COMMON_SCK, HIGH);
+  delayMicroseconds(1);
+  digitalWrite(HX711_COMMON_SCK, LOW);
+  delayMicroseconds(1);
+
+  // Xử lý bù hai 24-bit có dấu và chuyển đổi thành khối lượng gram
+  for (int i = 0; i < 10; i++) {
+    if (raw[i] & 0x800000) {
+      raw[i] |= 0xFF000000;
+    }
+
+    long netVal = raw[i] - shelves[i].tare_offset;
+    // Chuẩn hóa theo tỉ lệ Wokwi HX711 (420 xung = 1kg = 1000g)
+    float weight = ((float)netVal / 420.0) * 1000.0;
+    if (weight < 0) weight = 0;
+    shelves[i].current_weight = weight;
+
+    if (shelves[i].unit_weight > 0) {
+      shelves[i].current_qty = round(shelves[i].current_weight / shelves[i].unit_weight);
+    } else {
+      shelves[i].current_qty = 0;
+    }
+
+    // Điều khiển đèn LED đỏ cảnh báo tại chỗ cho từng kệ
+    shelves[i].is_low_stock = (shelves[i].current_qty <= shelves[i].min_qty);
+    digitalWrite(shelves[i].led_pin, shelves[i].is_low_stock ? HIGH : LOW);
   }
-  if (alertCount > 0) {
-    display.printf("CAN NHAP: %d KE THIEU!", alertCount);
-  } else {
-    display.print("Trang thai: DU HANG");
-  }
-  display.display();
 }
 
 // ==========================================
-// 7. GỬI DỮ LIỆU TELEMETRY QUA MQTT (JSON)
+// 7. CẬP NHẬT 10 MÀN HÌNH OLED RIÊNG BIỆT (ESL)
+// ==========================================
+void updateDisplays() {
+  for (int i = 0; i < 10; i++) {
+    if (!oleds[i]) continue;
+    oleds[i]->clearDisplay();
+    oleds[i]->setTextColor(WHITE);
+
+    // Dòng 1: Mã kệ + Tên sản phẩm
+    oleds[i]->setTextSize(1);
+    oleds[i]->setCursor(0, 0);
+    oleds[i]->printf("[%s] %s", shelves[i].id, shelves[i].name.c_str());
+    oleds[i]->drawLine(0, 10, 127, 10, WHITE);
+
+    // Dòng 2: Hiển thị Số lượng lớn trực quan
+    oleds[i]->setCursor(0, 16);
+    oleds[i]->setTextSize(2);
+    oleds[i]->printf("%2d", shelves[i].current_qty);
+    oleds[i]->setTextSize(1);
+    oleds[i]->setCursor(30, 22);
+    oleds[i]->print("mon");
+
+    // Khối lượng & Ngưỡng tối thiểu
+    oleds[i]->setCursor(64, 16);
+    oleds[i]->printf("%4dg", (int)shelves[i].current_weight);
+    oleds[i]->setCursor(64, 26);
+    oleds[i]->printf("Min: %2d", shelves[i].min_qty);
+
+    // Dòng 3: Khung trạng thái cảnh báo tại kệ
+    oleds[i]->drawLine(0, 42, 127, 42, WHITE);
+    oleds[i]->setCursor(0, 48);
+    if (shelves[i].is_low_stock) {
+      oleds[i]->print("! CAN NHAP HANG !");
+    } else {
+      oleds[i]->print("OK - DU HANG");
+    }
+
+    oleds[i]->display();
+  }
+}
+
+// ==========================================
+// 8. GỬI DỮ LIỆU TELEMETRY 10 KỆ QUA MQTT (JSON)
 // ==========================================
 void publishTelemetry() {
   if (!mqttClient.connected()) return;
 
   JsonDocument doc;
-  doc["device"] = "ESP32_SmartShelf";
+  doc["device"] = "ESP32_SmartShelf_10Tiers";
+  doc["node_id"] = "NODE_01";
+  doc["store"] = "TapHoaSmart";
   doc["uptime"] = millis() / 1000;
 
   int totalAlert = 0;
   JsonArray array = doc["shelves"].to<JsonArray>();
 
-  for (int i = 0; i < 3; i++) {
+  for (int i = 0; i < 10; i++) {
     JsonObject obj = array.add<JsonObject>();
     obj["id"]        = shelves[i].id;
     obj["name"]      = shelves[i].name;
@@ -183,19 +257,17 @@ void publishTelemetry() {
   }
   doc["total_alerts"] = totalAlert;
 
-  char buffer[512];
+  char buffer[1024];
   size_t n = serializeJson(doc, buffer);
 
   bool success = mqttClient.publish(TOPIC_TELEMETRY, buffer);
   if (success) {
-    Serial.printf("[MQTT PUB] -> %s (%d bytes)\n", TOPIC_TELEMETRY, (int)n);
-  } else {
-    Serial.println("[MQTT PUB FAILED] Không thể gửi gói tin telemetry!");
+    Serial.printf("[MQTT PUB] -> %s (10 kệ: %d bytes)\n", TOPIC_TELEMETRY, (int)n);
   }
 }
 
 // ==========================================
-// 8. TỰ ĐỘNG GỬI CẢNH BÁO TELEGRAM TRỰC TIẾP
+// 9. CẢNH BÁO TELEGRAM CHO TOÀN BỘ 10 KỆ
 // ==========================================
 void checkAndSendTelegramAlerts() {
   if (WiFi.status() != WL_CONNECTED) return;
@@ -204,51 +276,39 @@ void checkAndSendTelegramAlerts() {
   String alertMsg = "";
   int alertCount = 0;
 
-  for (int i = 0; i < 3; i++) {
+  for (int i = 0; i < 10; i++) {
     if (shelves[i].is_low_stock) {
-      // Gửi ngay khi vừa phát hiện thiếu hàng, hoặc nhắc lại sau mỗi 5 phút (300,000ms)
       if (!shelves[i].last_alert_sent || (now - shelves[i].last_alert_time >= 300000)) {
         shelves[i].last_alert_sent = true;
         shelves[i].last_alert_time = now;
-        alertMsg += "⚠️ *KỆ [" + String(shelves[i].id) + "] - " + shelves[i].name + "*: Còn *" + 
+        alertMsg += "⚠️ *[" + String(shelves[i].id) + "] " + shelves[i].name + "*: Còn *" + 
                     String(shelves[i].current_qty) + "* món (Tải trọng: " + 
-                    String((int)shelves[i].current_weight) + "g, Ngưỡng: " + 
+                    String((int)shelves[i].current_weight) + "g, Min: " + 
                     String(shelves[i].min_qty) + ")\n";
         alertCount++;
       }
     } else {
-      // Nếu trước đó đang cảnh báo mà nay người dùng đã thêm hàng vào kệ
       if (shelves[i].last_alert_sent) {
         shelves[i].last_alert_sent = false;
         String restockMsg = "✅ *[BỔ SUNG HÀNG THÀNH CÔNG]*\n"
                             "Kệ *[" + String(shelves[i].id) + "] - " + shelves[i].name + "* đã được nạp thêm hàng!\n"
-                            "- Số lượng hiện tại: *" + String(shelves[i].current_qty) + "* món\n"
-                            "- Tải trọng: *" + String((int)shelves[i].current_weight) + "g*";
-        bot.sendMessage(CHAT_ID, restockMsg, "Markdown");
-        Serial.printf("[TELEGRAM] Đã gửi thông báo bổ sung hàng kệ %s\n", shelves[i].id);
-        delay(300);
+                            "- Số lượng: *" + String(shelves[i].current_qty) + "* món (" + 
+                            String((int)shelves[i].current_weight) + "g)";
+        sendTelegramToAll(restockMsg);
       }
     }
   }
 
-  // Nếu có kệ thiếu hàng cần cảnh báo
   if (alertCount > 0) {
-    String header = "🚨 *[CẢNH BÁO KHO HÀNG - NHÓM 22]*\n\n";
-    String footer = "\n👉 *Vui lòng tiếp thêm hàng vào kệ!*";
-    String fullMsg = header + alertMsg + footer;
-
-    Serial.println("[TELEGRAM] Đang gửi thông báo cảnh báo qua Bot...");
-    bool sent = bot.sendMessage(CHAT_ID, fullMsg, "Markdown");
-    if (sent) {
-      Serial.println("[TELEGRAM] Gửi thông báo thành công!");
-    } else {
-      Serial.println("[TELEGRAM FAILED] Không thể gửi thông báo!");
-    }
+    String header = "🚨 *[CẢNH BÁO TIỆM TẠP HÓA 4.0]*\n\n";
+    String footer = "\n👉 *Vui lòng kiểm tra và tiếp thêm hàng vào kệ!*";
+    sendTelegramToAll(header + alertMsg + footer);
+    Serial.printf("[TELEGRAM] Đã gửi cảnh báo %d kệ thiếu hàng\n", alertCount);
   }
 }
 
 // ==========================================
-// 9. XỬ LÝ LỆNH ĐIỀU KHIỂN TỪ TELEGRAM (TƯƠNG TÁC 2 CHIỀU)
+// 10. TƯƠNG TÁC LỆNH TELEGRAM BOT
 // ==========================================
 void handleTelegramIncoming(int numNewMessages) {
   for (int i = 0; i < numNewMessages; i++) {
@@ -256,261 +316,180 @@ void handleTelegramIncoming(int numNewMessages) {
     String text = bot.messages[i].text;
     String fromName = bot.messages[i].from_name;
 
-    Serial.printf("[TELEGRAM IN] Từ: %s (%s): %s\n", fromName.c_str(), senderChatId.c_str(), text.c_str());
-
     if (text == "/start" || text == "/help") {
       String welcome = "Xin chào *" + fromName + "*!\n";
-      welcome += "🤖 *HỆ THỐNG SMART SHELF - NHÓM 22*\n\n";
-      welcome += "Các lệnh bạn có thể gửi:\n";
-      welcome += "👉 /status : Xem tình trạng 3 kệ hàng\n";
-      welcome += "👉 /tare_k1 : Hiệu chuẩn 0g cho Kệ 1 (Coca)\n";
-      welcome += "👉 /tare_k2 : Hiệu chuẩn 0g cho Kệ 2 (BanhOishi)\n";
-      welcome += "👉 /tare_k3 : Hiệu chuẩn 0g cho Kệ 3 (MiHaoHao)\n";
+      welcome += "🏪 *TIỆM TẠP HÓA THÔNG MINH 4.0 (10 KỆ HÀNG)*\n\n";
+      welcome += "👉 /status : Xem tình trạng tồn kho cả 10 kệ\n";
+      welcome += "👉 /tare K01 (đến K10) : Hiệu chuẩn 0g cho kệ\n";
       bot.sendMessage(senderChatId, welcome, "Markdown");
     }
     else if (text == "/status") {
-      String statusMsg = "📊 *TÌNH TRẠNG 3 KỆ HÀNG:*\n\n";
-      for (int s = 0; s < 3; s++) {
+      String statusMsg = "📊 *TÌNH TRẠNG 10 KỆ HÀNG TẠP HÓA:*\n\n";
+      for (int s = 0; s < 10; s++) {
         statusMsg += (shelves[s].is_low_stock ? "🔴" : "🟢");
         statusMsg += " *[" + String(shelves[s].id) + "] " + shelves[s].name + "*: ";
         statusMsg += String(shelves[s].current_qty) + " món (" + String((int)shelves[s].current_weight) + "g)";
         if (shelves[s].is_low_stock) {
-          statusMsg += " ⚠️ *THIẾU HÀNG! (Ngưỡng: " + String(shelves[s].min_qty) + ")*\n";
+          statusMsg += " ⚠️ *THIẾU!*\n";
         } else {
-          statusMsg += " (Đủ hàng)\n";
+          statusMsg += " (Đủ)\n";
         }
       }
       bot.sendMessage(senderChatId, statusMsg, "Markdown");
     }
-    else if (text.equalsIgnoreCase("/tare_k1") || text.equalsIgnoreCase("/tare k1")) {
-      shelves[0].scale.tare();
-      shelves[0].current_weight = 0;
-      shelves[0].current_qty = 0;
-      shelves[0].is_low_stock = true;
-      bot.sendMessage(senderChatId, "✅ Đã Tare (về 0g) cho Kệ 1 (Coca)!", "Markdown");
-      publishTelemetry();
-    }
-    else if (text.equalsIgnoreCase("/tare_k2") || text.equalsIgnoreCase("/tare k2")) {
-      shelves[1].scale.tare();
-      shelves[1].current_weight = 0;
-      shelves[1].current_qty = 0;
-      shelves[1].is_low_stock = true;
-      bot.sendMessage(senderChatId, "✅ Đã Tare (về 0g) cho Kệ 2 (BanhOishi)!", "Markdown");
-      publishTelemetry();
-    }
-    else if (text.equalsIgnoreCase("/tare_k3") || text.equalsIgnoreCase("/tare k3")) {
-      shelves[2].scale.tare();
-      shelves[2].current_weight = 0;
-      shelves[2].current_qty = 0;
-      shelves[2].is_low_stock = true;
-      bot.sendMessage(senderChatId, "✅ Đã Tare (về 0g) cho Kệ 3 (MiHaoHao)!", "Markdown");
-      publishTelemetry();
-    }
   }
 }
 
+// Helper: So khớp mã K1 và K01
+bool isShelfMatch(const char* target, const char* shelfId) {
+  if (strcmp(target, shelfId) == 0) return true;
+  if (strlen(target) == 2 && strlen(shelfId) == 3 && target[0] == 'K' && shelfId[0] == 'K') {
+    return target[1] == shelfId[2];
+  }
+  if (strlen(target) == 3 && strlen(shelfId) == 2 && target[0] == 'K' && shelfId[0] == 'K') {
+    return target[2] == shelfId[1];
+  }
+  return false;
+}
+
 // ==========================================
-// 10. NHẬN LỆNH ĐIỀU KHIỂN TỪ MQTT (DOWNLINK)
+// 11. XỬ LÝ LỆNH DOWNLINK (MQTT CMD)
 // ==========================================
 void handleIncomingCommand(const char* payload) {
   JsonDocument doc;
   DeserializationError error = deserializeJson(doc, payload);
-  if (error) {
-    Serial.println("[CMD ERROR] Chuỗi JSON không hợp lệ!");
-    return;
-  }
+  if (error) return;
 
   const char* cmd = doc["cmd"] | "";
 
-  // Lệnh 1: Cài đặt cấu hình kệ ({"cmd":"set","id":"K1","name":"Pepsi","unit":330,"min":2})
   if (strcmp(cmd, "set") == 0) {
     const char* targetId = doc["id"] | "";
-    for (int i = 0; i < 3; i++) {
-      if (strcmp(targetId, shelves[i].id) == 0) {
+    for (int i = 0; i < 10; i++) {
+      if (isShelfMatch(targetId, shelves[i].id)) {
         if (!doc["name"].isNull()) shelves[i].name = doc["name"].as<String>();
         if (!doc["unit"].isNull()) shelves[i].unit_weight = doc["unit"].as<float>();
         if (!doc["min"].isNull())  shelves[i].min_qty = doc["min"].as<int>();
 
         saveShelfConfig(i);
 
-        // Tính lại số lượng tức thời
         shelves[i].current_qty = (shelves[i].unit_weight > 0) ? round(shelves[i].current_weight / shelves[i].unit_weight) : 0;
         shelves[i].is_low_stock = (shelves[i].current_qty <= shelves[i].min_qty);
 
-        Serial.printf("[CMD SET] Đã cập nhật kệ %s: Tên=%s, Đơn vị=%.0fg, Ngưỡng=%d\n",
+        Serial.printf("[CMD SET] Kệ %s: Tên=%s, Đơn vị=%.0fg, Min=%d\n",
                       shelves[i].id, shelves[i].name.c_str(), shelves[i].unit_weight, shelves[i].min_qty);
         publishTelemetry();
         return;
       }
     }
   }
-  // Lệnh 2: Tare (về 0g) ({"cmd":"tare","id":"K1"})
   else if (strcmp(cmd, "tare") == 0) {
     const char* targetId = doc["id"] | "";
-    for (int i = 0; i < 3; i++) {
-      if (strcmp(targetId, shelves[i].id) == 0) {
-        shelves[i].scale.tare();
+    for (int i = 0; i < 10; i++) {
+      if (isShelfMatch(targetId, shelves[i].id)) {
+        shelves[i].tare_offset += (long)((shelves[i].current_weight / 1000.0) * 420.0);
         shelves[i].current_weight = 0;
         shelves[i].current_qty = 0;
         shelves[i].is_low_stock = true;
-        Serial.printf("[CMD TARE] Đã hiệu chuẩn 0g cho kệ %s\n", shelves[i].id);
+        Serial.printf("[CMD TARE] Đã Tare 0g cho kệ %s\n", shelves[i].id);
         publishTelemetry();
         return;
       }
     }
   }
-  // Lệnh 3: Yêu cầu cập nhật trạng thái ngay lập tức
   else if (strcmp(cmd, "status") == 0) {
     publishTelemetry();
   }
 }
 
-// Callback khi có tin nhắn từ MQTT Broker
 void mqttCallback(char* topic, byte* payload, unsigned int length) {
   char msgBuffer[256];
   if (length >= sizeof(msgBuffer)) length = sizeof(msgBuffer) - 1;
   memcpy(msgBuffer, payload, length);
   msgBuffer[length] = '\0';
-
-  Serial.printf("[MQTT SUB] Nhận tin từ topic [%s]: %s\n", topic, msgBuffer);
   handleIncomingCommand(msgBuffer);
 }
 
-// ==========================================
-// 11. TỰ ĐỘNG KẾT NỐI & TÁI KẾT NỐI MQTT
-// ==========================================
 bool reconnectMQTT() {
   if (mqttClient.connected()) return true;
 
-  Serial.print("[MQTT] Đang kết nối tới Broker...");
-  String clientId = "ESP32_SmartShelf_" + String((uint32_t)ESP.getEfuseMac(), HEX);
-
+  String clientId = "ESP32_SmartShelf_10Tiers_" + String((uint32_t)ESP.getEfuseMac(), HEX);
   if (mqttClient.connect(clientId.c_str())) {
-    Serial.println(" Thành công!");
     mqttClient.subscribe(TOPIC_CMD);
-    Serial.printf("[MQTT] Đã đăng ký lắng nghe topic: %s\n", TOPIC_CMD);
     publishTelemetry();
     return true;
-  } else {
-    Serial.printf(" Thất bại, mã lỗi rc=%d\n", mqttClient.state());
-    return false;
   }
+  return false;
 }
 
 // ==========================================
-// 12. XỬ LÝ LỆNH TỪ SERIAL MONITOR (TEST NHANH)
-// ==========================================
-void handleSerialCommands() {
-  if (!Serial.available()) return;
-  String text = Serial.readStringUntil('\n');
-  text.trim();
-  if (text.length() == 0) return;
-
-  if (text.startsWith("/help")) {
-    Serial.println("--- LENH SERIAL ---");
-    Serial.println("👉 /tare K1 (hoac K2, K3) : Ve 0g");
-    Serial.println("👉 /set K1 Coca 330 3    : Cai dat ke");
-    Serial.println("👉 /status               : Gui telemetry MQTT ngay");
-    return;
-  }
-
-  if (text.startsWith("/tare")) {
-    String id = text.substring(6); id.trim(); id.toUpperCase();
-    for (int i = 0; i < 3; i++) {
-      if (id == shelves[i].id) {
-        shelves[i].scale.tare();
-        shelves[i].current_weight = 0;
-        shelves[i].current_qty = 0;
-        shelves[i].is_low_stock = true;
-        Serial.println("✅ Đã Tare kệ " + id);
-        publishTelemetry();
-        return;
-      }
-    }
-  }
-
-  if (text.startsWith("/status")) {
-    publishTelemetry();
-    return;
-  }
-}
-
-// ==========================================
-// 13. SETUP & KHỞI TẠO HỆ THỐNG
+// 12. SETUP KHỞI TẠO HỆ THỐNG
 // ==========================================
 void setup() {
   Serial.begin(115200);
 
-  // Khởi tạo màn hình OLED I2C (SDA=21, SCL=22)
+  // 1. Khởi tạo Bus I2C (SDA=21, SCL=22) và 10 Màn hình OLED ESL riêng cho từng kệ
   Wire.begin(21, 22);
-  if (!display.begin(SSD1306_SWITCHCAPVCC, 0x3C)) {
-    Serial.println("OLED init failed!");
+  for (int i = 0; i < 10; i++) {
+    oleds[i] = new Adafruit_SSD1306(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, -1);
+    oleds[i]->begin(SSD1306_SWITCHCAPVCC, OLED_ADDRS[i]);
+    oleds[i]->clearDisplay();
+    oleds[i]->setTextColor(WHITE);
+    oleds[i]->setTextSize(1);
+    oleds[i]->setCursor(0, 5);
+    oleds[i]->printf("[%s] %s", shelves[i].id, shelves[i].name.c_str());
+    oleds[i]->setCursor(0, 25);
+    oleds[i]->print("Khoi tao ESL...");
+    oleds[i]->display();
   }
-  display.clearDisplay();
-  display.setTextColor(WHITE);
-  display.setTextSize(1);
-  display.setCursor(0, 15);
-  display.println("SMART SHELF - NHOM 22");
-  display.println("Connecting WiFi...");
-  display.display();
 
-  // Đọc cấu hình đã lưu trong Flash
-  loadPreferences();
+  // 2. Cấu hình chân Clock SCK chung cho 10 module HX711
+  pinMode(HX711_COMMON_SCK, OUTPUT);
+  digitalWrite(HX711_COMMON_SCK, LOW);
 
-  // Khởi tạo chân LED và cảm biến HX711 cho 3 kệ
-  for (int i = 0; i < 3; i++) {
+  // 3. Cấu hình chân LED (OUTPUT) và chân DT (INPUT) cho cả 10 kệ
+  for (int i = 0; i < 10; i++) {
     pinMode(shelves[i].led_pin, OUTPUT);
     digitalWrite(shelves[i].led_pin, LOW);
-
-    shelves[i].scale.begin(shelves[i].dout_pin, shelves[i].sck_pin);
-    shelves[i].scale.set_scale(420.0); // Hiệu chuẩn 420 xung / 1kg
+    pinMode(shelves[i].dout_pin, INPUT);
   }
 
-  // Kết nối Wi-Fi (Wokwi-GUEST)
+  // 4. Đọc cấu hình đã lưu trong Flash
+  loadPreferences();
+
+  // 5. Kết nối Wi-Fi Wokwi
   WiFi.begin(ssid, password);
   while (WiFi.status() != WL_CONNECTED) {
-    delay(300);
+    delay(250);
     Serial.print(".");
   }
   Serial.println("\nWiFi Connected! IP: " + WiFi.localIP().toString());
 
-  // Cấu hình Telegram Client trực tiếp từ ESP32
-  secured_client.setInsecure(); // Bỏ qua SSL cert để kết nối Telegram nhanh và ổn định
+  // 6. Cấu hình Telegram Client
+  secured_client.setInsecure();
   secured_client.setTimeout(3000);
 
-  // Gửi thông báo khởi động hệ thống qua Telegram
-  Serial.println("[TELEGRAM] Đang gửi thông báo khởi động...");
-  String bootMsg = "🚀 *[SMART SHELF - NHÓM 22]*\n"
-                   "Hệ thống đã khởi động và kết nối mạng thành công!\n"
+  String bootMsg = "🏪 *[TIỆM TẠP HÓA 4.0 - 10 KỆ HÀNG]*\n"
+                   "Hệ thống đã khởi động thành công với 10 cảm biến và 10 màn hình ESL!\n"
                    "- IP thiết bị: `" + WiFi.localIP().toString() + "`\n"
-                   "- Gửi /status để kiểm tra kệ hàng bất kỳ lúc nào.";
-  bot.sendMessage(CHAT_ID, bootMsg, "Markdown");
+                   "- Gửi /status để kiểm tra tồn kho.";
+  sendTelegramToAll(bootMsg);
 
-  // Cấu hình MQTT Client
+  // 7. Cấu hình MQTT
   mqttClient.setServer(mqtt_server, mqtt_port);
   mqttClient.setCallback(mqttCallback);
   mqttClient.setBufferSize(1024);
-
-  // Kết nối lần đầu tới MQTT
   reconnectMQTT();
 
-  display.clearDisplay();
-  display.setCursor(0, 20);
-  display.println("WiFi: Connected!");
-  display.println("MQTT: broker.hivemq");
-  display.display();
-  delay(1200);
-
-  Serial.println("\n=== HỆ THỐNG SMART SHELF MQTT & TELEGRAM ĐÃ SẴN SÀNG ===");
+  Serial.println("=== HỆ THỐNG 10 KỆ HÀNG TẠP HÓA (10 OLED ESL) ĐÃ SẴN SÀNG ===");
 }
 
 // ==========================================
-// 14. VÒNG LẶP CHÍNH (LOOP)
+// 13. VÒNG LẶP CHÍNH (LOOP)
 // ==========================================
 void loop() {
   unsigned long now = millis();
 
-  // 1. Duy trì kết nối MQTT (Không chặn chương trình)
+  // 1. Duy trì kết nối MQTT
   if (!mqttClient.connected()) {
     if (now - lastMqttReconnectAttempt > mqttReconnectInterval) {
       lastMqttReconnectAttempt = now;
@@ -520,10 +499,7 @@ void loop() {
     mqttClient.loop();
   }
 
-  // 2. Kiểm tra lệnh từ cổng Serial (để test trên mô phỏng Wokwi)
-  handleSerialCommands();
-
-  // 3. Kiểm tra và nhận lệnh từ người dùng trên Telegram (mỗi 3.5 giây)
+  // 2. Kiểm tra lệnh từ Telegram Bot
   if (now - lastTelegramCheck > telegramCheckInterval) {
     lastTelegramCheck = now;
     if (WiFi.status() == WL_CONNECTED) {
@@ -535,39 +511,20 @@ void loop() {
     }
   }
 
-  // 4. Đọc cảm biến định kỳ, cập nhật màn hình, gửi Telemetry MQTT và thông báo Telegram
+  // 3. Chu kỳ đọc 10 cảm biến HX711, cập nhật 10 OLED và publish MQTT
   if (now - lastTelemetryTime > telemetryInterval) {
     lastTelemetryTime = now;
 
-    // Đọc cân nặng và tính toán số lượng từng kệ
-    for (int i = 0; i < 3; i++) {
-      float w = shelves[i].scale.get_units(3) * 1000.0; // Đổi kg -> gram
-      if (w < 0) w = 0;
-      shelves[i].current_weight = w;
+    // Đọc đồng thời 10 cảm biến HX711
+    readAllScales();
 
-      if (shelves[i].unit_weight > 0) {
-        shelves[i].current_qty = round(shelves[i].current_weight / shelves[i].unit_weight);
-      } else {
-        shelves[i].current_qty = 0;
-      }
+    // Cập nhật 10 màn hình OLED ESL riêng biệt
+    updateDisplays();
 
-      // Kích hoạt đèn LED cảnh báo tại chỗ
-      if (shelves[i].current_qty <= shelves[i].min_qty) {
-        shelves[i].is_low_stock = true;
-        digitalWrite(shelves[i].led_pin, HIGH); // Bật LED đỏ
-      } else {
-        shelves[i].is_low_stock = false;
-        digitalWrite(shelves[i].led_pin, LOW);  // Tắt LED đỏ
-      }
-    }
-
-    // Hiển thị ra màn hình OLED
-    updateDisplay();
-
-    // Publish gói tin trạng thái lên MQTT Broker (cho Node-RED nếu có)
+    // Gửi Telemetry 10 kệ qua MQTT
     publishTelemetry();
 
-    // Tự động kiểm tra và gửi cảnh báo trực tiếp tới Telegram bot
+    // Kiểm tra và gửi thông báo Telegram
     checkAndSendTelegramAlerts();
   }
 }

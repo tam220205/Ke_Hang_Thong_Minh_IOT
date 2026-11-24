@@ -1,0 +1,1641 @@
+[
+    {
+        "id": "flow_01",
+        "type": "tab",
+        "label": "flow_01 (Q3 - Inject)",
+        "disabled": false,
+        "info": "Q3: Inject + Debug"
+    },
+    {
+        "id": "inject_node_01",
+        "type": "inject",
+        "z": "flow_01",
+        "name": "Test Data /device01/env",
+        "props": [
+            {
+                "p": "payload"
+            },
+            {
+                "p": "topic",
+                "vt": "str"
+            }
+        ],
+        "repeat": "5",
+        "crontab": "",
+        "once": true,
+        "onceDelay": 0.1,
+        "topic": "/device01/env",
+        "payload": "{\"temp\": 30, \"humid\": 75}",
+        "payloadType": "json",
+        "x": 220,
+        "y": 160,
+        "wires": [
+            [
+                "debug_node_01"
+            ]
+        ]
+    },
+    {
+        "id": "debug_node_01",
+        "type": "debug",
+        "z": "flow_01",
+        "name": "Debug /device01/env",
+        "active": true,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "true",
+        "targetType": "full",
+        "x": 480,
+        "y": 160,
+        "wires": []
+    },
+    {
+        "id": "flow_02",
+        "type": "tab",
+        "label": "flow_02 (Q5 - HTTP In)",
+        "disabled": false,
+        "info": "Q5: HTTP In + Response + Debug"
+    },
+    {
+        "id": "http_in_01",
+        "type": "http in",
+        "z": "flow_02",
+        "name": "POST /device01/env",
+        "url": "/device01/env",
+        "method": "post",
+        "upload": false,
+        "swaggerDoc": "",
+        "x": 180,
+        "y": 160,
+        "wires": [
+            [
+                "http_response_01",
+                "debug_http_01"
+            ]
+        ]
+    },
+    {
+        "id": "http_response_01",
+        "type": "http response",
+        "z": "flow_02",
+        "name": "Response 200 OK",
+        "statusCode": "200",
+        "headers": {},
+        "x": 460,
+        "y": 140,
+        "wires": []
+    },
+    {
+        "id": "debug_http_01",
+        "type": "debug",
+        "z": "flow_02",
+        "name": "Debug HTTP In",
+        "active": true,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "true",
+        "targetType": "full",
+        "x": 460,
+        "y": 200,
+        "wires": []
+    },
+    {
+        "id": "mqtt_broker_01",
+        "type": "mqtt-broker",
+        "name": "test.mosquitto.org",
+        "broker": "test.mosquitto.org",
+        "port": "1883",
+        "clientid": "",
+        "autoConnect": true,
+        "usetls": false,
+        "protocolVersion": "4",
+        "keepalive": "60",
+        "cleansession": true,
+        "autoUnsubscribe": true,
+        "birthTopic": "",
+        "birthQos": "0",
+        "birthPayload": "",
+        "birthMsg": {},
+        "closeTopic": "",
+        "closeQos": "0",
+        "closePayload": "",
+        "closeMsg": {},
+        "willTopic": "",
+        "willQos": "0",
+        "willPayload": "",
+        "willMsg": {},
+        "userProps": "",
+        "sessionExpiry": ""
+    },
+    {
+        "id": "flow_03",
+        "type": "tab",
+        "label": "flow_03 (Q6 - MQTT)",
+        "disabled": false,
+        "info": "Q6: MQTT In + Debug"
+    },
+    {
+        "id": "mqtt_in_01",
+        "type": "mqtt in",
+        "z": "flow_03",
+        "name": "MQTT Sub weathervue/#",
+        "topic": "testtopic/weathervue/#",
+        "qos": "2",
+        "datatype": "auto-detect",
+        "broker": "mqtt_broker_01",
+        "nl": false,
+        "rap": true,
+        "rh": 0,
+        "inputs": 0,
+        "x": 220,
+        "y": 160,
+        "wires": [
+            [
+                "debug_mqtt_01"
+            ]
+        ]
+    },
+    {
+        "id": "debug_mqtt_01",
+        "type": "debug",
+        "z": "flow_03",
+        "name": "Debug MQTT In",
+        "active": true,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "true",
+        "targetType": "full",
+        "x": 480,
+        "y": 160,
+        "wires": []
+    },
+    {
+        "id": "inject_mqtt_test",
+        "type": "inject",
+        "z": "flow_03",
+        "name": "Publish Test Payload",
+        "props": [
+            {
+                "p": "payload"
+            },
+            {
+                "p": "topic",
+                "vt": "str"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "topic": "testtopic/weathervue/device01",
+        "payload": "{\"temp\": 30, \"humid\": 75}",
+        "payloadType": "json",
+        "x": 210,
+        "y": 260,
+        "wires": [
+            [
+                "mqtt_out_01"
+            ]
+        ]
+    },
+    {
+        "id": "mqtt_out_01",
+        "type": "mqtt out",
+        "z": "flow_03",
+        "name": "MQTT Pub weathervue",
+        "topic": "testtopic/weathervue/device01",
+        "qos": "0",
+        "retain": "false",
+        "respTopic": "",
+        "contentType": "",
+        "userProps": "",
+        "correl": "",
+        "expiry": "",
+        "broker": "mqtt_broker_01",
+        "x": 490,
+        "y": 260,
+        "wires": []
+    },
+    {
+        "id": "flow_04",
+        "type": "tab",
+        "label": "flow_04 (Q7 - Function Parse)",
+        "disabled": false,
+        "info": "Q7: Parse JSON payload th�nh 2 gi� tr? temp v� humid"
+    },
+    {
+        "id": "inject_q7_01",
+        "type": "inject",
+        "z": "flow_04",
+        "name": "Input {\"temp\": 30, \"humid\": 75}",
+        "props": [
+            {
+                "p": "payload"
+            },
+            {
+                "p": "topic",
+                "vt": "str"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": true,
+        "onceDelay": 0.1,
+        "topic": "/device01/env",
+        "payload": "{\"temp\": 30, \"humid\": 75}",
+        "payloadType": "json",
+        "x": 190,
+        "y": 180,
+        "wires": [
+            [
+                "func_parse_q7"
+            ]
+        ]
+    },
+    {
+        "id": "func_parse_q7",
+        "type": "function",
+        "z": "flow_04",
+        "name": "Parse Temp & Humid",
+        "func": "// Parse thong tin payload thanh 2 value temp/humid\nlet data = msg.payload;\nif (typeof data === 'string') {\n    try {\n        data = JSON.parse(data);\n    } catch(e) {}\n}\n\nlet temp = data.temp;\nlet humid = data.humid;\n\n// Cap nhat status duoi node\nnode.status({fill: \"green\", shape: \"dot\", text: \"temp: \" + temp + \"�C | humid: \" + humid + \"%\"});\n\n// Output 1: Temperature value\nlet msgTemp = {\n    topic: \"temperature\",\n    payload: temp\n};\n\n// Output 2: Humidity value\nlet msgHumid = {\n    topic: \"humidity\",\n    payload: humid\n};\n\nreturn [msgTemp, msgHumid];",
+        "outputs": 2,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 450,
+        "y": 180,
+        "wires": [
+            [
+                "debug_q7_temp"
+            ],
+            [
+                "debug_q7_humid"
+            ]
+        ]
+    },
+    {
+        "id": "debug_q7_temp",
+        "type": "debug",
+        "z": "flow_04",
+        "name": "Debug Temp (30)",
+        "active": true,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "true",
+        "targetType": "full",
+        "x": 710,
+        "y": 140,
+        "wires": []
+    },
+    {
+        "id": "debug_q7_humid",
+        "type": "debug",
+        "z": "flow_04",
+        "name": "Debug Humid (75)",
+        "active": true,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "true",
+        "targetType": "full",
+        "x": 710,
+        "y": 220,
+        "wires": []
+    },
+    {
+        "id": "tab_smart_shelf",
+        "type": "tab",
+        "label": "Nhóm 22 - Smart Grocery 10 Shelves",
+        "disabled": false,
+        "info": "## Hệ thống Quản trị Kệ hàng Tạp hóa Thông minh (10 Kệ PoC 50 SP) - Nhóm 22\n\n### Danh mục 10 Kệ hàng Tạp hóa:\n- K01: Coca-Cola 330ml (Wokwi Cảm biến 1)\n- K02: Mì Hảo Hảo Tôm Chua Cay (Wokwi Cảm biến 2)\n- K03: Bánh Oishi Phồng Tôm (Wokwi Cảm biến 3)\n- K04: Sữa tươi Vinamilk 180ml (Node-RED Virtual Shelf)\n- K05: Bột giặt OMO Comfort 800g (Node-RED Virtual Shelf)\n- K06: Dầu ăn Simply 1L (Node-RED Virtual Shelf)\n- K07: Nước mắm Nam Ngư 500ml (Node-RED Virtual Shelf)\n- K08: Bánh Chocopie Hộp 6 cái (Node-RED Virtual Shelf)\n- K09: Trứng gà Ba Huân 10 quả (Node-RED Virtual Shelf)\n- K10: Tương ớt Chinsu 250g (Node-RED Virtual Shelf)\n\n### Kiến trúc Luồng:\n- Wokwi (Phân khu A): K01..K03 truyền dữ liệu tải trọng và cảnh báo tại chỗ\n- Node-RED 10-Shelf Engine: Duy trì và tự động mô phỏng biến thiên giao dịch mua bán K04..K10\n- Hợp nhất Telemetry 10 Kệ đẩy lên Web Dashboard & Telegram Bot"
+    },
+    {
+        "id": "mqtt_broker_hivemq",
+        "type": "mqtt-broker",
+        "name": "HiveMQ Public Broker",
+        "broker": "broker.hivemq.com",
+        "port": "1883",
+        "clientid": "NodeRED_Nhom22_Consumer",
+        "autoConnect": true,
+        "usetls": false,
+        "protocolVersion": "4",
+        "keepalive": "60",
+        "cleansession": true,
+        "autoUnsubscribe": true
+    },
+    {
+        "id": "group_receive",
+        "type": "group",
+        "z": "tab_smart_shelf",
+        "name": "📡 TẦNG 1: THU NHẬN DỮ LIỆU MQTT",
+        "style": {
+            "label": true,
+            "stroke": "#3d85c6",
+            "fill": "#e6f0ff",
+            "color": "#3d85c6",
+            "fill-opacity": "0.15"
+        },
+        "nodes": [
+            "mqtt_in_telemetry",
+            "comment_receive",
+            "debug_raw_data",
+            "inject_grocery_sim"
+        ],
+        "x": 54,
+        "y": 39,
+        "w": 472,
+        "h": 142
+    },
+    {
+        "id": "comment_receive",
+        "type": "comment",
+        "z": "tab_smart_shelf",
+        "g": "group_receive",
+        "name": "ESP32 gửi JSON mỗi 2.5s qua topic nhom22/smartshelf/telemetry",
+        "info": "Dữ liệu JSON gồm: device, uptime, shelves[] (id, name, weight, unit, qty, min, low_stock), total_alerts",
+        "x": 300,
+        "y": 60,
+        "wires": []
+    },
+    {
+        "id": "mqtt_in_telemetry",
+        "type": "mqtt in",
+        "z": "tab_smart_shelf",
+        "g": "group_receive",
+        "name": "📥 Nhận Telemetry ESP32",
+        "topic": "nhom22/smartshelf/telemetry",
+        "qos": "0",
+        "datatype": "json",
+        "broker": "mqtt_broker_hivemq",
+        "nl": false,
+        "rap": true,
+        "rh": 0,
+        "inputs": 0,
+        "x": 170,
+        "y": 120,
+        "wires": [
+            [
+                "debug_raw_data",
+                "fn_grocery_10_engine"
+            ]
+        ]
+    },
+    {
+        "id": "debug_raw_data",
+        "type": "debug",
+        "z": "tab_smart_shelf",
+        "g": "group_receive",
+        "name": "🔍 Raw JSON",
+        "active": true,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": true,
+        "complete": "payload",
+        "targetType": "msg",
+        "statusVal": "payload.device",
+        "statusType": "auto",
+        "x": 410,
+        "y": 120,
+        "wires": []
+    },
+    {
+        "id": "group_process",
+        "type": "group",
+        "z": "tab_smart_shelf",
+        "name": "⚙️ TẦNG 2: XỬ LÝ & PHÂN TÍCH DỮ LIỆU",
+        "style": {
+            "label": true,
+            "stroke": "#6aa84f",
+            "fill": "#eaf5e6",
+            "color": "#6aa84f",
+            "fill-opacity": "0.15"
+        },
+        "nodes": [
+            "fn_parse_shelves",
+            "fn_save_context",
+            "comment_process",
+            "sw_route_shelves",
+            "change_k1",
+            "change_k2",
+            "change_k3",
+            "fn_calc_stats",
+            "fn_grocery_10_engine"
+        ],
+        "x": 534,
+        "y": 39,
+        "w": 582,
+        "h": 302
+    },
+    {
+        "id": "comment_process",
+        "type": "comment",
+        "z": "tab_smart_shelf",
+        "g": "group_process",
+        "name": "Tách dữ liệu từng kệ → lưu context → tính thống kê tổng hợp",
+        "info": "",
+        "x": 780,
+        "y": 60,
+        "wires": []
+    },
+    {
+        "id": "fn_parse_shelves",
+        "type": "function",
+        "z": "tab_smart_shelf",
+        "g": "group_process",
+        "name": "📊 Tách dữ liệu 3 kệ",
+        "func": "// Tách mảng shelves thành 3 output riêng biệt cho mỗi kệ\nlet shelves = msg.payload.shelves || [];\nlet k1 = null, k2 = null, k3 = null;\n\nfor (let s of shelves) {\n    let m = { payload: s, topic: msg.topic };\n    if (s.id === 'K1') k1 = m;\n    else if (s.id === 'K2') k2 = m;\n    else if (s.id === 'K3') k3 = m;\n}\n\nreturn [k1, k2, k3];",
+        "outputs": 3,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 620,
+        "y": 120,
+        "wires": [
+            [
+                "change_k1",
+                "gauge_k1_qty",
+                "chart_k1"
+            ],
+            [
+                "change_k2",
+                "gauge_k2_qty",
+                "chart_k2"
+            ],
+            [
+                "change_k3",
+                "gauge_k3_qty",
+                "chart_k3"
+            ]
+        ]
+    },
+    {
+        "id": "fn_save_context",
+        "type": "function",
+        "z": "tab_smart_shelf",
+        "g": "group_process",
+        "name": "💾 Lưu Flow Context",
+        "func": "// Lưu toàn bộ dữ liệu vào flow context để các node khác truy cập\nlet data = msg.payload;\nflow.set('lastTelemetry', data);\nflow.set('lastUpdate', new Date().toLocaleString('vi-VN'));\nflow.set('uptime', data.uptime || 0);\nflow.set('totalAlerts', data.total_alerts || 0);\n\n// Lưu lịch sử (giữ 100 bản ghi gần nhất)\nlet history = flow.get('history') || [];\nhistory.push({\n    timestamp: Date.now(),\n    shelves: data.shelves,\n    alerts: data.total_alerts\n});\nif (history.length > 100) history.shift();\nflow.set('history', history);\n\nnode.status({fill: 'green', shape: 'dot', text: `Saved @ ${new Date().toLocaleTimeString('vi-VN')}`});\nreturn msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 620,
+        "y": 180,
+        "wires": [
+            [
+                "fn_calc_stats"
+            ]
+        ]
+    },
+    {
+        "id": "fn_calc_stats",
+        "type": "function",
+        "z": "tab_smart_shelf",
+        "g": "group_process",
+        "name": "📈 Tính thống kê tổng hợp",
+        "func": "// Tính toán thống kê tổng hợp cho 10 Kệ hàng Tạp hóa\nlet shelves = msg.payload.shelves || [];\nlet totalQty = 0, totalWeight = 0, alertCount = 0;\n\nfor (let s of shelves) {\n    totalQty += s.qty;\n    totalWeight += s.weight;\n    if (s.low_stock) alertCount++;\n}\n\nlet statusMsg = {\n    payload: alertCount > 0 \n        ? `⚠️ Có ${alertCount}/10 kệ đang thiếu hàng!` \n        : '✅ Toàn bộ 10 kệ tạp hóa đang đủ hàng',\n    topic: 'status'\n};\n\nlet totalQtyMsg = { payload: totalQty };\nlet totalWeightMsg = { payload: totalWeight };\nlet alertMsg = { payload: alertCount };\nlet uptimeMsg = { payload: msg.payload.uptime || 0 };\n\nreturn [statusMsg, totalQtyMsg, totalWeightMsg, alertMsg, uptimeMsg];",
+        "outputs": 5,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 850,
+        "y": 180,
+        "wires": [
+            [
+                "ui_status_text"
+            ],
+            [
+                "ui_total_qty"
+            ],
+            [
+                "ui_total_weight"
+            ],
+            [
+                "ui_alert_count"
+            ],
+            [
+                "ui_uptime"
+            ]
+        ]
+    },
+    {
+        "id": "sw_route_shelves",
+        "type": "switch",
+        "z": "tab_smart_shelf",
+        "g": "group_process",
+        "name": "🔀 Phân luồng theo trạng thái",
+        "property": "payload.total_alerts",
+        "propertyType": "msg",
+        "rules": [
+            {
+                "t": "eq",
+                "v": "0",
+                "vt": "num"
+            },
+            {
+                "t": "gt",
+                "v": "0",
+                "vt": "num"
+            }
+        ],
+        "checkall": "true",
+        "repair": false,
+        "outputs": 2,
+        "x": 680,
+        "y": 280,
+        "wires": [
+            [
+                "debug_status_ok"
+            ],
+            [
+                "debug_status_alert"
+            ]
+        ]
+    },
+    {
+        "id": "change_k1",
+        "type": "change",
+        "z": "tab_smart_shelf",
+        "g": "group_process",
+        "name": "🏷️ Label K1",
+        "rules": [
+            {
+                "t": "set",
+                "p": "topic",
+                "pt": "msg",
+                "to": "Kệ 1 - Coca",
+                "tot": "str"
+            }
+        ],
+        "x": 830,
+        "y": 80,
+        "wires": [
+            [
+                "ui_text_k1"
+            ]
+        ]
+    },
+    {
+        "id": "change_k2",
+        "type": "change",
+        "z": "tab_smart_shelf",
+        "g": "group_process",
+        "name": "🏷️ Label K2",
+        "rules": [
+            {
+                "t": "set",
+                "p": "topic",
+                "pt": "msg",
+                "to": "Kệ 2 - BanhOishi",
+                "tot": "str"
+            }
+        ],
+        "x": 830,
+        "y": 120,
+        "wires": [
+            [
+                "ui_text_k2"
+            ]
+        ]
+    },
+    {
+        "id": "change_k3",
+        "type": "change",
+        "z": "tab_smart_shelf",
+        "g": "group_process",
+        "name": "🏷️ Label K3",
+        "rules": [
+            {
+                "t": "set",
+                "p": "topic",
+                "pt": "msg",
+                "to": "Kệ 3 - MiHaoHao",
+                "tot": "str"
+            }
+        ],
+        "x": 830,
+        "y": 160,
+        "wires": [
+            [
+                "ui_text_k3"
+            ]
+        ]
+    },
+    {
+        "id": "debug_status_ok",
+        "type": "debug",
+        "z": "tab_smart_shelf",
+        "name": "✅ Đủ hàng",
+        "active": false,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": true,
+        "complete": "payload.total_alerts",
+        "targetType": "msg",
+        "statusVal": "",
+        "statusType": "auto",
+        "x": 920,
+        "y": 260,
+        "wires": []
+    },
+    {
+        "id": "debug_status_alert",
+        "type": "debug",
+        "z": "tab_smart_shelf",
+        "name": "⚠️ Có kệ thiếu!",
+        "active": true,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": true,
+        "complete": "payload.total_alerts",
+        "targetType": "msg",
+        "statusVal": "",
+        "statusType": "auto",
+        "x": 930,
+        "y": 300,
+        "wires": []
+    },
+    {
+        "id": "group_dashboard",
+        "type": "group",
+        "z": "tab_smart_shelf",
+        "name": "📊 TẦNG 3: DASHBOARD UI (Gauge / Chart / Text)",
+        "style": {
+            "label": true,
+            "stroke": "#e69138",
+            "fill": "#fef3e6",
+            "color": "#e69138",
+            "fill-opacity": "0.15"
+        },
+        "nodes": [
+            "comment_dashboard",
+            "gauge_k1_qty",
+            "gauge_k2_qty",
+            "gauge_k3_qty",
+            "chart_k1",
+            "chart_k2",
+            "chart_k3",
+            "ui_text_k1",
+            "ui_text_k2",
+            "ui_text_k3",
+            "ui_status_text",
+            "ui_total_qty",
+            "ui_total_weight",
+            "ui_alert_count",
+            "ui_uptime",
+            "template_table"
+        ],
+        "x": 1134,
+        "y": 39,
+        "w": 622,
+        "h": 482
+    },
+    {
+        "id": "comment_dashboard",
+        "type": "comment",
+        "z": "tab_smart_shelf",
+        "g": "group_dashboard",
+        "name": "⬇ Dashboard hiển thị realtime: Gauge số lượng, Chart lịch sử, Bảng tổng hợp",
+        "info": "Cài node-red-dashboard để sử dụng:\nnpm install node-red-dashboard\n\nTruy cập UI tại: http://localhost:1880/ui",
+        "x": 1400,
+        "y": 60,
+        "wires": []
+    },
+    {
+        "id": "gauge_k1_qty",
+        "type": "function",
+        "z": "tab_smart_shelf",
+        "g": "group_dashboard",
+        "name": "📏 Gauge K1 (Coca)",
+        "func": "// Hiển thị số lượng Kệ 1 dạng gauge\nlet s = msg.payload;\nnode.status({\n    fill: s.low_stock ? 'red' : 'green',\n    shape: 'ring',\n    text: `${s.name}: ${s.qty} món (${s.weight}g)`\n});\nmsg.payload = s.qty;\nmsg.topic = 'K1 - ' + s.name;\nreturn msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 1220,
+        "y": 100,
+        "wires": [
+            [
+                "template_table"
+            ]
+        ]
+    },
+    {
+        "id": "gauge_k2_qty",
+        "type": "function",
+        "z": "tab_smart_shelf",
+        "g": "group_dashboard",
+        "name": "📏 Gauge K2 (BanhOishi)",
+        "func": "let s = msg.payload;\nnode.status({\n    fill: s.low_stock ? 'red' : 'green',\n    shape: 'ring',\n    text: `${s.name}: ${s.qty} món (${s.weight}g)`\n});\nmsg.payload = s.qty;\nmsg.topic = 'K2 - ' + s.name;\nreturn msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 1230,
+        "y": 160,
+        "wires": [
+            [
+                "template_table"
+            ]
+        ]
+    },
+    {
+        "id": "gauge_k3_qty",
+        "type": "function",
+        "z": "tab_smart_shelf",
+        "g": "group_dashboard",
+        "name": "📏 Gauge K3 (MiHaoHao)",
+        "func": "let s = msg.payload;\nnode.status({\n    fill: s.low_stock ? 'red' : 'green',\n    shape: 'ring',\n    text: `${s.name}: ${s.qty} món (${s.weight}g)`\n});\nmsg.payload = s.qty;\nmsg.topic = 'K3 - ' + s.name;\nreturn msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 1230,
+        "y": 220,
+        "wires": [
+            [
+                "template_table"
+            ]
+        ]
+    },
+    {
+        "id": "chart_k1",
+        "type": "function",
+        "z": "tab_smart_shelf",
+        "g": "group_dashboard",
+        "name": "📈 Chart K1 Weight",
+        "func": "let s = msg.payload;\nmsg.payload = s.weight;\nmsg.topic = 'K1 - ' + s.name;\nreturn msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 1460,
+        "y": 100,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "chart_k2",
+        "type": "function",
+        "z": "tab_smart_shelf",
+        "g": "group_dashboard",
+        "name": "📈 Chart K2 Weight",
+        "func": "let s = msg.payload;\nmsg.payload = s.weight;\nmsg.topic = 'K2 - ' + s.name;\nreturn msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 1460,
+        "y": 160,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "chart_k3",
+        "type": "function",
+        "z": "tab_smart_shelf",
+        "g": "group_dashboard",
+        "name": "📈 Chart K3 Weight",
+        "func": "let s = msg.payload;\nmsg.payload = s.weight;\nmsg.topic = 'K3 - ' + s.name;\nreturn msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 1460,
+        "y": 220,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "ui_text_k1",
+        "type": "function",
+        "z": "tab_smart_shelf",
+        "g": "group_dashboard",
+        "name": "📝 Text K1 Detail",
+        "func": "let s = msg.payload;\nlet icon = s.low_stock ? '🔴' : '🟢';\nmsg.payload = `${icon} ${s.name}: ${s.qty} món | ${s.weight}g | Ngưỡng: ${s.min}`;\nnode.status({fill: s.low_stock ? 'red' : 'green', shape: 'dot', text: msg.payload});\nreturn msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 1220,
+        "y": 300,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "ui_text_k2",
+        "type": "function",
+        "z": "tab_smart_shelf",
+        "g": "group_dashboard",
+        "name": "📝 Text K2 Detail",
+        "func": "let s = msg.payload;\nlet icon = s.low_stock ? '🔴' : '🟢';\nmsg.payload = `${icon} ${s.name}: ${s.qty} món | ${s.weight}g | Ngưỡng: ${s.min}`;\nnode.status({fill: s.low_stock ? 'red' : 'green', shape: 'dot', text: msg.payload});\nreturn msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 1220,
+        "y": 340,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "ui_text_k3",
+        "type": "function",
+        "z": "tab_smart_shelf",
+        "g": "group_dashboard",
+        "name": "📝 Text K3 Detail",
+        "func": "let s = msg.payload;\nlet icon = s.low_stock ? '🔴' : '🟢';\nmsg.payload = `${icon} ${s.name}: ${s.qty} món | ${s.weight}g | Ngưỡng: ${s.min}`;\nnode.status({fill: s.low_stock ? 'red' : 'green', shape: 'dot', text: msg.payload});\nreturn msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 1220,
+        "y": 380,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "template_table",
+        "type": "function",
+        "z": "tab_smart_shelf",
+        "g": "group_dashboard",
+        "name": "📋 Bảng tổng hợp 10 kệ Tạp hóa",
+        "func": "let data = flow.get('lastTelemetry');\nif (!data || !data.shelves) return null;\n\nlet table = '<table border=\"1\" style=\"border-collapse:collapse;width:100%;font-family:Arial,sans-serif;font-size:13px\">';\ntable += '<tr style=\"background:#1e3a8a;color:white;text-align:left;padding:8px\"><th>Mã</th><th>Phân loại</th><th>Tên sản phẩm</th><th>Tồn kho</th><th>Tải trọng</th><th>Ngưỡng</th><th>Trạng thái</th></tr>';\n\nfor (let s of data.shelves) {\n    let color = s.low_stock ? '#fee2e2' : '#f0fdf4';\n    let textColor = s.low_stock ? '#b91c1c' : '#15803d';\n    let status = s.low_stock ? '⚠️ THIẾU HÀNG' : '✅ ĐỦ HÀNG';\n    let cat = s.category || 'Tạp hóa';\n    table += `<tr style=\"background:${color};color:#1f2937\">\n      <td style=\"padding:6px\"><b>${s.id}</b></td>\n      <td style=\"padding:6px\">${cat}</td>\n      <td style=\"padding:6px\"><b>${s.name}</b></td>\n      <td style=\"padding:6px;text-align:center\"><b>${s.qty}</b> món</td>\n      <td style=\"padding:6px;text-align:right\">${s.weight}g</td>\n      <td style=\"padding:6px;text-align:center\">${s.min}</td>\n      <td style=\"padding:6px;color:${textColor};font-weight:bold\">${status}</td>\n    </tr>`;\n}\ntable += '</table>';\n\nmsg.payload = table;\nnode.status({fill: 'blue', shape: 'dot', text: `${data.shelves.length} kệ tạp hóa | Rendered`});\nreturn msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 1460,
+        "y": 300,
+        "wires": [
+            [
+                "debug_table"
+            ]
+        ]
+    },
+    {
+        "id": "debug_table",
+        "type": "debug",
+        "z": "tab_smart_shelf",
+        "name": "📋 Debug Table HTML",
+        "active": false,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "payload",
+        "targetType": "msg",
+        "statusVal": "",
+        "statusType": "auto",
+        "x": 1670,
+        "y": 300,
+        "wires": []
+    },
+    {
+        "id": "ui_status_text",
+        "type": "function",
+        "z": "tab_smart_shelf",
+        "g": "group_dashboard",
+        "name": "🚦 Trạng thái hệ thống",
+        "func": "node.status({fill: msg.payload.includes('⚠️') ? 'red' : 'green', shape: 'dot', text: msg.payload});\nreturn msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 1460,
+        "y": 360,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "ui_total_qty",
+        "type": "function",
+        "z": "tab_smart_shelf",
+        "g": "group_dashboard",
+        "name": "🔢 Tổng SL tồn",
+        "func": "node.status({fill: 'blue', shape: 'ring', text: `Tổng: ${msg.payload} món`});\nreturn msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 1460,
+        "y": 400,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "ui_total_weight",
+        "type": "function",
+        "z": "tab_smart_shelf",
+        "g": "group_dashboard",
+        "name": "⚖️ Tổng tải trọng",
+        "func": "node.status({fill: 'blue', shape: 'ring', text: `${msg.payload}g`});\nreturn msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 1460,
+        "y": 440,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "ui_alert_count",
+        "type": "function",
+        "z": "tab_smart_shelf",
+        "g": "group_dashboard",
+        "name": "🔔 Số kệ cảnh báo",
+        "func": "node.status({fill: msg.payload > 0 ? 'red' : 'green', shape: 'dot', text: `${msg.payload} kệ thiếu`});\nreturn msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 1460,
+        "y": 480,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "ui_uptime",
+        "type": "function",
+        "z": "tab_smart_shelf",
+        "g": "group_dashboard",
+        "name": "⏱️ Uptime ESP32",
+        "func": "let sec = msg.payload;\nlet h = Math.floor(sec / 3600);\nlet m = Math.floor((sec % 3600) / 60);\nlet s = sec % 60;\nlet text = `${h}h ${m}m ${s}s`;\nnode.status({fill: 'green', shape: 'dot', text: text});\nmsg.payload = text;\nreturn msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 1460,
+        "y": 520,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "group_telegram",
+        "type": "group",
+        "z": "tab_smart_shelf",
+        "name": "🔔 TẦNG 4: CẢNH BÁO TELEGRAM (Đa người nhận)",
+        "style": {
+            "label": true,
+            "stroke": "#cc0000",
+            "fill": "#ffe6e6",
+            "color": "#cc0000",
+            "fill-opacity": "0.15"
+        },
+        "nodes": [
+            "fn_check_stock",
+            "comment_telegram",
+            "delay_telegram",
+            "fn_format_telegram",
+            "http_telegram_alert",
+            "debug_telegram_res",
+            "fn_telegram_status"
+        ],
+        "x": 54,
+        "y": 359,
+        "w": 1082,
+        "h": 222
+    },
+    {
+        "id": "comment_telegram",
+        "type": "comment",
+        "z": "tab_smart_shelf",
+        "g": "group_telegram",
+        "name": "Kiểm tra ngưỡng → Chống spam 5 phút → Format Markdown → POST Telegram API × 2 users",
+        "info": "Chat IDs: 8349343826, 7982908394\nBot Token: 8838533602:AAERwan30IWcSVd7wOiZlTo8A68JZ1M2hM0",
+        "x": 400,
+        "y": 380,
+        "wires": []
+    },
+    {
+        "id": "fn_check_stock",
+        "type": "function",
+        "z": "tab_smart_shelf",
+        "g": "group_telegram",
+        "name": "🔍 Kiểm tra ngưỡng & Chống spam",
+        "func": "// Kiểm tra ngưỡng tồn kho cho cả 10 Kệ hàng & Chống spam Telegram\nlet lastAlerts = context.get('lastAlerts') || {};\nlet now = Date.now();\nlet interval = 5 * 60 * 1000; // Nhắc lại sau mỗi 5 phút nếu chưa tiếp hàng\n\nlet shelves = msg.payload.shelves || [];\nlet alertMessages = [];\nlet alertShelves = [];\n\nfor (let shelf of shelves) {\n    if (shelf.low_stock) {\n        let lastTime = lastAlerts[shelf.id] || 0;\n        if (now - lastTime >= interval) {\n            alertMessages.push(`⚠️ *KỆ [${shelf.id}] - ${shelf.name}*: Còn *${shelf.qty}* món (Tải trọng: ${shelf.weight}g, Ngưỡng min: ${shelf.min})`);\n            alertShelves.push(shelf);\n            lastAlerts[shelf.id] = now;\n        }\n    } else {\n        delete lastAlerts[shelf.id];\n    }\n}\n\ncontext.set('lastAlerts', lastAlerts);\n\nif (alertMessages.length > 0) {\n    msg.alertMessages = alertMessages;\n    msg.alertShelves = alertShelves;\n    msg.alertCount = alertMessages.length;\n    node.status({fill: 'red', shape: 'dot', text: `${alertMessages.length}/10 kệ cần cảnh báo!`});\n    return msg;\n}\n\nnode.status({fill: 'green', shape: 'ring', text: 'OK - 10 kệ đủ hàng'});\nreturn null;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 200,
+        "y": 440,
+        "wires": [
+            [
+                "delay_telegram"
+            ]
+        ]
+    },
+    {
+        "id": "delay_telegram",
+        "type": "delay",
+        "z": "tab_smart_shelf",
+        "g": "group_telegram",
+        "name": "⏳ Rate Limit (1msg/s)",
+        "pauseType": "rate",
+        "timeout": "5",
+        "timeoutUnits": "seconds",
+        "rate": "1",
+        "nbRateUnits": "1",
+        "rateUnits": "second",
+        "randomFirst": "1",
+        "randomLast": "5",
+        "randomUnits": "seconds",
+        "drop": false,
+        "allowrate": "",
+        "outputs": 1,
+        "x": 450,
+        "y": 440,
+        "wires": [
+            [
+                "fn_format_telegram"
+            ]
+        ]
+    },
+    {
+        "id": "fn_format_telegram",
+        "type": "function",
+        "z": "tab_smart_shelf",
+        "g": "group_telegram",
+        "name": "✏️ Format Markdown & Multi-User",
+        "func": "// Format tin nhắn Markdown cho Telegram\nlet alertMessages = msg.alertMessages || [];\n\nlet text = `🚨 *[CẢNH BÁO KHO HÀNG - NHÓM 22]*\\n\\n`;\ntext += alertMessages.join('\\n');\ntext += `\\n\\n📅 _Thời gian: ${new Date().toLocaleString('vi-VN')}_`;\ntext += `\\n👉 *Vui lòng tiếp thêm hàng vào kệ!*`;\n\n// Danh sách Chat ID nhận cảnh báo (Cách 2: Đa người dùng)\nlet chatIds = [\"8349343826\", \"7982908394\"];\nlet messages = [];\n\nfor (let cid of chatIds) {\n    messages.push({\n        payload: {\n            chat_id: cid,\n            text: text,\n            parse_mode: \"Markdown\"\n        }\n    });\n}\n\nnode.status({fill: 'yellow', shape: 'dot', text: `Gửi tới ${chatIds.length} người...`});\nreturn [messages];",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 680,
+        "y": 440,
+        "wires": [
+            [
+                "http_telegram_alert"
+            ]
+        ]
+    },
+    {
+        "id": "http_telegram_alert",
+        "type": "http request",
+        "z": "tab_smart_shelf",
+        "g": "group_telegram",
+        "name": "📤 POST Telegram API",
+        "method": "POST",
+        "ret": "obj",
+        "paytoqs": "ignore",
+        "url": "https://api.telegram.org/bot8838533602:AAERwan30IWcSVd7wOiZlTo8A68JZ1M2hM0/sendMessage",
+        "tls": "",
+        "persist": false,
+        "proxy": "",
+        "insecureHTTPParser": false,
+        "authType": "",
+        "senderr": false,
+        "headers": [],
+        "x": 920,
+        "y": 440,
+        "wires": [
+            [
+                "debug_telegram_res",
+                "fn_telegram_status"
+            ]
+        ]
+    },
+    {
+        "id": "debug_telegram_res",
+        "type": "debug",
+        "z": "tab_smart_shelf",
+        "g": "group_telegram",
+        "name": "📨 Response Telegram",
+        "active": true,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": true,
+        "complete": "payload",
+        "targetType": "msg",
+        "statusVal": "payload.ok",
+        "statusType": "auto",
+        "x": 950,
+        "y": 500,
+        "wires": []
+    },
+    {
+        "id": "fn_telegram_status",
+        "type": "function",
+        "z": "tab_smart_shelf",
+        "g": "group_telegram",
+        "name": "✅ Trạng thái gửi",
+        "func": "if (msg.payload && msg.payload.ok) {\n    node.status({fill: 'green', shape: 'dot', text: `OK - Chat ${msg.payload.result.chat.id} @ ${new Date().toLocaleTimeString('vi-VN')}`});\n} else {\n    node.status({fill: 'red', shape: 'dot', text: `FAILED: ${JSON.stringify(msg.payload)}`});\n}\nreturn null;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 690,
+        "y": 520,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "group_control",
+        "type": "group",
+        "z": "tab_smart_shelf",
+        "name": "🎛️ TẦNG 5: ĐIỀU KHIỂN DOWNLINK (Tare / Set / Status)",
+        "style": {
+            "label": true,
+            "stroke": "#9900ff",
+            "fill": "#f3e6ff",
+            "color": "#9900ff",
+            "fill-opacity": "0.15"
+        },
+        "nodes": [
+            "comment_control",
+            "inject_tare_k1",
+            "inject_tare_k2",
+            "inject_tare_k3",
+            "inject_set_k1",
+            "inject_set_k2",
+            "inject_set_k3",
+            "inject_status",
+            "mqtt_out_cmd",
+            "debug_cmd_sent"
+        ],
+        "x": 54,
+        "y": 599,
+        "w": 712,
+        "h": 402
+    },
+    {
+        "id": "comment_control",
+        "type": "comment",
+        "z": "tab_smart_shelf",
+        "g": "group_control",
+        "name": "Gửi lệnh JSON qua MQTT topic nhom22/smartshelf/cmd → ESP32 thực thi",
+        "info": "Lệnh hỗ trợ:\n- {\"cmd\":\"tare\",\"id\":\"K1\"} → Hiệu chuẩn 0g\n- {\"cmd\":\"set\",\"id\":\"K1\",\"name\":\"Pepsi\",\"unit\":330,\"min\":2} → Cài đặt kệ\n- {\"cmd\":\"status\"} → Yêu cầu gửi telemetry ngay",
+        "x": 350,
+        "y": 620,
+        "wires": []
+    },
+    {
+        "id": "inject_tare_k1",
+        "type": "inject",
+        "z": "tab_smart_shelf",
+        "g": "group_control",
+        "name": "🔄 Tare Kệ 1 (Coca)",
+        "props": [
+            {
+                "p": "payload"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "",
+        "payload": "{\"cmd\":\"tare\",\"id\":\"K1\"}",
+        "payloadType": "json",
+        "x": 180,
+        "y": 660,
+        "wires": [
+            [
+                "mqtt_out_cmd",
+                "debug_cmd_sent"
+            ]
+        ]
+    },
+    {
+        "id": "inject_tare_k2",
+        "type": "inject",
+        "z": "tab_smart_shelf",
+        "g": "group_control",
+        "name": "🔄 Tare Kệ 2 (BanhOishi)",
+        "props": [
+            {
+                "p": "payload"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "",
+        "payload": "{\"cmd\":\"tare\",\"id\":\"K2\"}",
+        "payloadType": "json",
+        "x": 190,
+        "y": 700,
+        "wires": [
+            [
+                "mqtt_out_cmd",
+                "debug_cmd_sent"
+            ]
+        ]
+    },
+    {
+        "id": "inject_tare_k3",
+        "type": "inject",
+        "z": "tab_smart_shelf",
+        "g": "group_control",
+        "name": "🔄 Tare Kệ 3 (MiHaoHao)",
+        "props": [
+            {
+                "p": "payload"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "",
+        "payload": "{\"cmd\":\"tare\",\"id\":\"K3\"}",
+        "payloadType": "json",
+        "x": 190,
+        "y": 740,
+        "wires": [
+            [
+                "mqtt_out_cmd",
+                "debug_cmd_sent"
+            ]
+        ]
+    },
+    {
+        "id": "inject_set_k1",
+        "type": "inject",
+        "z": "tab_smart_shelf",
+        "g": "group_control",
+        "name": "⚙️ Set K1 (Pepsi 330g, min=2)",
+        "props": [
+            {
+                "p": "payload"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "",
+        "payload": "{\"cmd\":\"set\",\"id\":\"K1\",\"name\":\"Pepsi\",\"unit\":330,\"min\":2}",
+        "payloadType": "json",
+        "x": 210,
+        "y": 800,
+        "wires": [
+            [
+                "mqtt_out_cmd",
+                "debug_cmd_sent"
+            ]
+        ]
+    },
+    {
+        "id": "inject_set_k2",
+        "type": "inject",
+        "z": "tab_smart_shelf",
+        "g": "group_control",
+        "name": "⚙️ Set K2 (Lays 28g, min=8)",
+        "props": [
+            {
+                "p": "payload"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "",
+        "payload": "{\"cmd\":\"set\",\"id\":\"K2\",\"name\":\"Lays\",\"unit\":28,\"min\":8}",
+        "payloadType": "json",
+        "x": 210,
+        "y": 840,
+        "wires": [
+            [
+                "mqtt_out_cmd",
+                "debug_cmd_sent"
+            ]
+        ]
+    },
+    {
+        "id": "inject_set_k3",
+        "type": "inject",
+        "z": "tab_smart_shelf",
+        "g": "group_control",
+        "name": "⚙️ Set K3 (MiLau 65g, min=5)",
+        "props": [
+            {
+                "p": "payload"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "",
+        "payload": "{\"cmd\":\"set\",\"id\":\"K3\",\"name\":\"MiLau\",\"unit\":65,\"min\":5}",
+        "payloadType": "json",
+        "x": 210,
+        "y": 880,
+        "wires": [
+            [
+                "mqtt_out_cmd",
+                "debug_cmd_sent"
+            ]
+        ]
+    },
+    {
+        "id": "inject_status",
+        "type": "inject",
+        "z": "tab_smart_shelf",
+        "g": "group_control",
+        "name": "📡 Yêu cầu Status ngay",
+        "props": [
+            {
+                "p": "payload"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "",
+        "payload": "{\"cmd\":\"status\"}",
+        "payloadType": "json",
+        "x": 190,
+        "y": 940,
+        "wires": [
+            [
+                "mqtt_out_cmd",
+                "debug_cmd_sent"
+            ]
+        ]
+    },
+    {
+        "id": "mqtt_out_cmd",
+        "type": "mqtt out",
+        "z": "tab_smart_shelf",
+        "g": "group_control",
+        "name": "📤 Gửi lệnh Downlink",
+        "topic": "nhom22/smartshelf/cmd",
+        "qos": "0",
+        "retain": "false",
+        "respTopic": "",
+        "contentType": "",
+        "userProps": "",
+        "correl": "",
+        "expiry": "",
+        "broker": "mqtt_broker_hivemq",
+        "x": 490,
+        "y": 780,
+        "wires": []
+    },
+    {
+        "id": "debug_cmd_sent",
+        "type": "debug",
+        "z": "tab_smart_shelf",
+        "g": "group_control",
+        "name": "📤 Debug CMD",
+        "active": true,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": true,
+        "complete": "payload",
+        "targetType": "msg",
+        "statusVal": "",
+        "statusType": "auto",
+        "x": 490,
+        "y": 840,
+        "wires": []
+    },
+    {
+        "id": "group_error",
+        "type": "group",
+        "z": "tab_smart_shelf",
+        "name": "🛡️ XỬ LÝ LỖI & GIÁM SÁT",
+        "style": {
+            "label": true,
+            "stroke": "#999999",
+            "fill": "#f2f2f2",
+            "color": "#666666",
+            "fill-opacity": "0.15"
+        },
+        "nodes": [
+            "catch_all",
+            "fn_error_handler",
+            "debug_errors",
+            "status_monitor",
+            "fn_status_display",
+            "comment_error"
+        ],
+        "x": 834,
+        "y": 599,
+        "w": 542,
+        "h": 222
+    },
+    {
+        "id": "comment_error",
+        "type": "comment",
+        "z": "tab_smart_shelf",
+        "g": "group_error",
+        "name": "Bắt tất cả lỗi runtime + giám sát trạng thái kết nối MQTT",
+        "info": "",
+        "x": 1040,
+        "y": 620,
+        "wires": []
+    },
+    {
+        "id": "catch_all",
+        "type": "catch",
+        "z": "tab_smart_shelf",
+        "g": "group_error",
+        "name": "🛑 Bắt tất cả lỗi",
+        "scope": null,
+        "uncaught": false,
+        "x": 910,
+        "y": 660,
+        "wires": [
+            [
+                "fn_error_handler"
+            ]
+        ]
+    },
+    {
+        "id": "fn_error_handler",
+        "type": "function",
+        "z": "tab_smart_shelf",
+        "g": "group_error",
+        "name": "📝 Ghi log lỗi",
+        "func": "let errorLog = flow.get('errorLog') || [];\nerrorLog.push({\n    time: new Date().toLocaleString('vi-VN'),\n    source: msg.error.source.name || 'Unknown',\n    message: msg.error.message || 'No message'\n});\nif (errorLog.length > 50) errorLog.shift();\nflow.set('errorLog', errorLog);\n\nnode.status({fill: 'red', shape: 'dot', text: `Lỗi: ${msg.error.message}`});\nmsg.payload = `❌ [ERROR] ${msg.error.source.name}: ${msg.error.message}`;\nreturn msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 1110,
+        "y": 660,
+        "wires": [
+            [
+                "debug_errors"
+            ]
+        ]
+    },
+    {
+        "id": "debug_errors",
+        "type": "debug",
+        "z": "tab_smart_shelf",
+        "g": "group_error",
+        "name": "❌ Error Log",
+        "active": true,
+        "tosidebar": true,
+        "console": true,
+        "tostatus": true,
+        "complete": "payload",
+        "targetType": "msg",
+        "statusVal": "",
+        "statusType": "auto",
+        "x": 1300,
+        "y": 660,
+        "wires": []
+    },
+    {
+        "id": "status_monitor",
+        "type": "status",
+        "z": "tab_smart_shelf",
+        "g": "group_error",
+        "name": "📡 Giám sát MQTT Status",
+        "scope": [
+            "mqtt_in_telemetry",
+            "mqtt_out_cmd"
+        ],
+        "x": 940,
+        "y": 740,
+        "wires": [
+            [
+                "fn_status_display"
+            ]
+        ]
+    },
+    {
+        "id": "fn_status_display",
+        "type": "function",
+        "z": "tab_smart_shelf",
+        "g": "group_error",
+        "name": "🟢 Hiển thị trạng thái kết nối",
+        "func": "let st = msg.status;\nif (st && st.text) {\n    if (st.text.includes('connected')) {\n        node.status({fill: 'green', shape: 'dot', text: 'MQTT: Connected'});\n    } else if (st.text.includes('disconnected')) {\n        node.status({fill: 'red', shape: 'ring', text: 'MQTT: Disconnected!'});\n    }\n}\nreturn null;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 1190,
+        "y": 740,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "fn_grocery_10_engine",
+        "type": "function",
+        "z": "tab_smart_shelf",
+        "g": "group_process",
+        "name": "🛒 10-Shelf Grocery Engine",
+        "func": "// Quản lý trạng thái 10 Kệ hàng Tạp hóa Thông minh (K01 - K10)\nlet default10 = [\n  { id: \"K01\", name: \"Coca-Cola 330ml\", weight: 990, unit: 330, qty: 3, min: 3, low_stock: false, category: \"Đồ uống\" },\n  { id: \"K02\", name: \"Mì Hảo Hảo Tôm\", weight: 375, unit: 75, qty: 5, min: 5, low_stock: false, category: \"Ăn liền\" },\n  { id: \"K03\", name: \"Bánh Oishi Snack\", weight: 200, unit: 50, qty: 4, min: 4, low_stock: false, category: \"Bánh kẹo\" },\n  { id: \"K04\", name: \"Sữa tươi Vinamilk\", weight: 760, unit: 190, qty: 4, min: 4, low_stock: false, category: \"Sữa tươi\" },\n  { id: \"K05\", name: \"Bột giặt OMO 800g\", weight: 2400, unit: 800, qty: 3, min: 2, low_stock: false, category: \"Hóa mỹ phẩm\" },\n  { id: \"K06\", name: \"Dầu ăn Simply 1L\", weight: 3680, unit: 920, qty: 4, min: 3, low_stock: false, category: \"Gia vị\" },\n  { id: \"K07\", name: \"Nước mắm Nam Ngư\", weight: 2200, unit: 550, qty: 4, min: 3, low_stock: false, category: \"Gia vị\" },\n  { id: \"K08\", name: \"Bánh Chocopie Hộp\", weight: 594, unit: 198, qty: 3, min: 2, low_stock: false, category: \"Bánh kẹo\" },\n  { id: \"K09\", name: \"Trứng gà Ba Huân\", weight: 1800, unit: 600, qty: 3, min: 2, low_stock: false, category: \"Thực phẩm\" },\n  { id: \"K10\", name: \"Tương ớt Chinsu\", weight: 1120, unit: 280, qty: 4, min: 3, low_stock: false, category: \"Gia vị\" }\n];\n\nlet shelves10 = flow.get('shelves10') || default10;\n\n// 1. Nhận dữ liệu thực tế từ ESP32 Wokwi (Phân khu A: K01, K02, K03)\nif (msg.payload && Array.isArray(msg.payload.shelves)) {\n    for (let s of msg.payload.shelves) {\n        let idx = shelves10.findIndex(x => x.id === s.id || (s.id === 'K1' && x.id === 'K01') || (s.id === 'K2' && x.id === 'K02') || (s.id === 'K3' && x.id === 'K03'));\n        if (idx !== -1) {\n            shelves10[idx].weight = s.weight;\n            shelves10[idx].qty = s.qty;\n            if (s.unit) shelves10[idx].unit = s.unit;\n            if (s.min !== undefined) shelves10[idx].min = s.min;\n            shelves10[idx].low_stock = (shelves10[idx].qty <= shelves10[idx].min);\n        }\n    }\n}\n\n// 2. Xử lý lệnh Tare hoặc Set cấu hình cho bất kỳ kệ nào từ Downlink\nif (msg.payload && msg.payload.cmd) {\n    let target = msg.payload.id || \"\";\n    let idx = shelves10.findIndex(x => x.id === target || (target === 'K1' && x.id === 'K01') || (target === 'K2' && x.id === 'K02') || (target === 'K3' && x.id === 'K03'));\n    if (idx !== -1) {\n        if (msg.payload.cmd === 'tare') {\n            shelves10[idx].weight = 0;\n            shelves10[idx].qty = 0;\n            shelves10[idx].low_stock = true;\n        } else if (msg.payload.cmd === 'set') {\n            if (msg.payload.name) shelves10[idx].name = msg.payload.name;\n            if (msg.payload.unit) shelves10[idx].unit = msg.payload.unit;\n            if (msg.payload.min !== undefined) shelves10[idx].min = msg.payload.min;\n            shelves10[idx].qty = Math.round(shelves10[idx].weight / shelves10[idx].unit);\n            shelves10[idx].low_stock = (shelves10[idx].qty <= shelves10[idx].min);\n        }\n    }\n}\n\n// 3. Xử lý sự kiện mô phỏng khách mua sắm tiệm tạp hóa (K04 - K10)\nif (msg.topic === 'simulate_grocery_event') {\n    let targetIdx = Math.floor(Math.random() * 7) + 3; // Index 3 đến 9 (K04-K10)\n    let s = shelves10[targetIdx];\n    let change = Math.random() > 0.35 ? -1 : 2; // Khách mua hoặc bổ sung\n    s.qty = Math.max(0, Math.min(10, s.qty + change));\n    s.weight = s.qty * s.unit;\n    s.low_stock = (s.qty <= s.min);\n}\n\n// 4. Tính toán tổng hợp\nlet alertCount = shelves10.filter(x => x.low_stock).length;\nlet uptime = (flow.get('uptime') || 0) + 2;\n\nflow.set('shelves10', shelves10);\nflow.set('uptime', uptime);\n\nmsg.payload = {\n    device: \"ESP32_SmartShelf_10Tiers\",\n    store: \"TapHoaSmart_Q7\",\n    uptime: uptime,\n    shelves: shelves10,\n    total_alerts: alertCount,\n    timestamp: new Date().toISOString()\n};\n\nflow.set('lastTelemetry', msg.payload);\nflow.set('totalAlerts', alertCount);\n\nnode.status({\n    fill: alertCount > 0 ? 'red' : 'green',\n    shape: 'dot',\n    text: `10 Kệ: ${alertCount} kệ thiếu hàng | Updated`\n});\n\nreturn msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 620,
+        "y": 120,
+        "wires": [
+            [
+                "fn_save_context",
+                "fn_calc_stats",
+                "fn_check_stock",
+                "template_table"
+            ]
+        ]
+    },
+    {
+        "id": "inject_grocery_sim",
+        "type": "inject",
+        "z": "tab_smart_shelf",
+        "g": "group_receive",
+        "name": "🛒 Mô phỏng Khách mua hàng (K04-K10)",
+        "props": [
+            {
+                "p": "payload"
+            },
+            {
+                "p": "topic",
+                "vt": "str"
+            }
+        ],
+        "repeat": "6",
+        "crontab": "",
+        "once": true,
+        "onceDelay": 1,
+        "topic": "simulate_grocery_event",
+        "payload": "{}",
+        "payloadType": "json",
+        "x": 230,
+        "y": 180,
+        "wires": [
+            [
+                "fn_grocery_10_engine"
+            ]
+        ]
+    }
+]
