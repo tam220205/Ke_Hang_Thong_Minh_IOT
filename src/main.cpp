@@ -86,16 +86,16 @@ const int HX711_COMMON_SCK = 18;
 
 // Danh sách 10 Kệ hàng khớp 100% với sơ đồ diagram.json
 Shelf shelves[10] = {
-  {"K01", "Coca-Cola", 330.0, 3, 19, HX711_COMMON_SCK, 2,  0, 0.0, 0, false, false, 0},
-  {"K02", "HaoHao",     75.0, 5,  5, HX711_COMMON_SCK, 4,  0, 0.0, 0, false, false, 0},
-  {"K03", "Oishi",      50.0, 4, 23, HX711_COMMON_SCK, 27, 0, 0.0, 0, false, false, 0},
-  {"K04", "Vinamilk",  190.0, 4, 17, HX711_COMMON_SCK, 14, 0, 0.0, 0, false, false, 0},
-  {"K05", "OMO",       800.0, 2, 16, HX711_COMMON_SCK, 12, 0, 0.0, 0, false, false, 0},
-  {"K06", "Simply",    920.0, 3, 32, HX711_COMMON_SCK, 13, 0, 0.0, 0, false, false, 0},
-  {"K07", "NamNgu",    550.0, 3, 36, HX711_COMMON_SCK, 15, 0, 0.0, 0, false, false, 0},
-  {"K08", "Chocopie",  198.0, 2, 34, HX711_COMMON_SCK, 25, 0, 0.0, 0, false, false, 0},
-  {"K09", "TrungGa",   600.0, 2, 35, HX711_COMMON_SCK, 26, 0, 0.0, 0, false, false, 0},
-  {"K10", "Chinsu",    280.0, 3, 39, HX711_COMMON_SCK, 33, 0, 0.0, 0, false, false, 0}
+  {"K01", "Coca-Cola 330ml", 330.0, 3, 19, HX711_COMMON_SCK, 2,  0, 0.0, 0, false, false, 0},
+  {"K02", "Mi Hao Hao",      75.0, 5,  5, HX711_COMMON_SCK, 4,  0, 0.0, 0, false, false, 0},
+  {"K03", "Banh Oishi",      50.0, 4, 23, HX711_COMMON_SCK, 27, 0, 0.0, 0, false, false, 0},
+  {"K04", "Sua Vinamilk",   190.0, 4, 17, HX711_COMMON_SCK, 14, 0, 0.0, 0, false, false, 0},
+  {"K05", "Bot giat OMO",   800.0, 2, 16, HX711_COMMON_SCK, 12, 0, 0.0, 0, false, false, 0},
+  {"K06", "Dau an Simply",  920.0, 3, 32, HX711_COMMON_SCK, 13, 0, 0.0, 0, false, false, 0},
+  {"K07", "Mam Nam Ngu",    550.0, 3, 36, HX711_COMMON_SCK, 15, 0, 0.0, 0, false, false, 0},
+  {"K08", "Banh Chocopie",  198.0, 2, 34, HX711_COMMON_SCK, 25, 0, 0.0, 0, false, false, 0},
+  {"K09", "Trung Ba Huan",  600.0, 2, 35, HX711_COMMON_SCK, 26, 0, 0.0, 0, false, false, 0},
+  {"K10", "Tuong ot Chinsu", 280.0, 3, 39, HX711_COMMON_SCK, 33, 0, 0.0, 0, false, false, 0}
 };
 
 unsigned long lastTelemetryTime = 0;
@@ -193,34 +193,41 @@ void updateDisplays() {
   for (int i = 0; i < 10; i++) {
     if (!oleds[i]) continue;
     oleds[i]->clearDisplay();
-    oleds[i]->setTextColor(WHITE);
 
-    // Dòng 1: Mã kệ + Tên sản phẩm
+    // Dòng 1: Banner đen trên nền trắng nổi bật tên sản phẩm và mã kệ
+    oleds[i]->fillRect(0, 0, 128, 12, WHITE);
+    oleds[i]->setTextColor(BLACK);
     oleds[i]->setTextSize(1);
-    oleds[i]->setCursor(0, 0);
+    oleds[i]->setCursor(2, 2);
     oleds[i]->printf("[%s] %s", shelves[i].id, shelves[i].name.c_str());
-    oleds[i]->drawLine(0, 10, 127, 10, WHITE);
 
-    // Dòng 2: Hiển thị Số lượng lớn trực quan
-    oleds[i]->setCursor(0, 16);
+    // Dòng 2: Số lượng tồn kho lớn trực quan
+    oleds[i]->setTextColor(WHITE);
     oleds[i]->setTextSize(2);
+    oleds[i]->setCursor(2, 17);
     oleds[i]->printf("%2d", shelves[i].current_qty);
     oleds[i]->setTextSize(1);
-    oleds[i]->setCursor(30, 22);
+    oleds[i]->setCursor(28, 23);
     oleds[i]->print("mon");
 
-    // Khối lượng & Ngưỡng tối thiểu
-    oleds[i]->setCursor(64, 16);
+    // Khối lượng hiện tại & Quy cách đóng gói & Ngưỡng min
+    oleds[i]->setCursor(62, 16);
     oleds[i]->printf("%4dg", (int)shelves[i].current_weight);
-    oleds[i]->setCursor(64, 26);
+    oleds[i]->setCursor(62, 26);
+    oleds[i]->printf("(%dg/m)", (int)shelves[i].unit_weight);
+    oleds[i]->setCursor(62, 36);
     oleds[i]->printf("Min: %2d", shelves[i].min_qty);
 
     // Dòng 3: Khung trạng thái cảnh báo tại kệ
-    oleds[i]->drawLine(0, 42, 127, 42, WHITE);
-    oleds[i]->setCursor(0, 48);
+    oleds[i]->drawLine(0, 48, 127, 48, WHITE);
     if (shelves[i].is_low_stock) {
+      oleds[i]->fillRect(0, 50, 128, 14, WHITE);
+      oleds[i]->setTextColor(BLACK);
+      oleds[i]->setCursor(8, 53);
       oleds[i]->print("! CAN NHAP HANG !");
     } else {
+      oleds[i]->setTextColor(WHITE);
+      oleds[i]->setCursor(16, 53);
       oleds[i]->print("OK - DU HANG");
     }
 
@@ -432,15 +439,9 @@ void setup() {
   for (int i = 0; i < 10; i++) {
     oleds[i] = new Adafruit_SSD1306(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, -1);
     oleds[i]->begin(SSD1306_SWITCHCAPVCC, OLED_ADDRS[i]);
-    oleds[i]->clearDisplay();
-    oleds[i]->setTextColor(WHITE);
-    oleds[i]->setTextSize(1);
-    oleds[i]->setCursor(0, 5);
-    oleds[i]->printf("[%s] %s", shelves[i].id, shelves[i].name.c_str());
-    oleds[i]->setCursor(0, 25);
-    oleds[i]->print("Khoi tao ESL...");
-    oleds[i]->display();
   }
+  // Hiển thị thông tin nhận diện sản phẩm trên cả 10 màn hình ngay từ lúc bật nguồn
+  updateDisplays();
 
   // 2. Cấu hình chân Clock SCK chung cho 10 module HX711
   pinMode(HX711_COMMON_SCK, OUTPUT);

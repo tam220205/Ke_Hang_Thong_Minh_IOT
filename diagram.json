@@ -33,7 +33,7 @@
       "left": -480,
       "attrs": {
         "color": "red",
-        "label": "K01:Coca"
+        "label": "K01: Coca-Cola 330ml"
       }
     },
     {
@@ -68,7 +68,7 @@
       "left": -480,
       "attrs": {
         "color": "red",
-        "label": "K02:HaoHao"
+        "label": "K02: Mi Hao Hao"
       }
     },
     {
@@ -103,7 +103,7 @@
       "left": -480,
       "attrs": {
         "color": "red",
-        "label": "K03:Oishi"
+        "label": "K03: Banh Oishi"
       }
     },
     {
@@ -138,7 +138,7 @@
       "left": -480,
       "attrs": {
         "color": "red",
-        "label": "K04:Vinamilk"
+        "label": "K04: Sua Vinamilk"
       }
     },
     {
@@ -173,7 +173,7 @@
       "left": -480,
       "attrs": {
         "color": "red",
-        "label": "K05:OMO"
+        "label": "K05: Bot giat OMO"
       }
     },
     {
@@ -208,7 +208,7 @@
       "left": 310,
       "attrs": {
         "color": "red",
-        "label": "K06:Simply"
+        "label": "K06: Dau an Simply"
       }
     },
     {
@@ -243,7 +243,7 @@
       "left": 310,
       "attrs": {
         "color": "red",
-        "label": "K07:NamNgu"
+        "label": "K07: Nuoc mam NamNgu"
       }
     },
     {
@@ -278,7 +278,7 @@
       "left": 310,
       "attrs": {
         "color": "red",
-        "label": "K08:Chocopie"
+        "label": "K08: Banh Chocopie"
       }
     },
     {
@@ -313,7 +313,7 @@
       "left": 310,
       "attrs": {
         "color": "red",
-        "label": "K09:TrungGa"
+        "label": "K09: Trung Ba Huan"
       }
     },
     {
@@ -348,7 +348,7 @@
       "left": 310,
       "attrs": {
         "color": "red",
-        "label": "K10:Chinsu"
+        "label": "K10: Tuong ot Chinsu"
       }
     },
     {
