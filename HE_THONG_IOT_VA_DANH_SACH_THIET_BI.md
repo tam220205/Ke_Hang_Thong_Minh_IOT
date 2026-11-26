@@ -6,92 +6,43 @@
 
 ---
 
-## 📌 PHẦN A: NỘI DUNG CHI TIẾT 3 TẦNG KIẾN TRÚC HỆ THỐNG
+## 📌 PHẦN A: KIẾN TRÚC HỆ THỐNG IoT 4 TẦNG
 
 ```mermaid
 flowchart LR
-    subgraph Part1["PART 1: DEVICE (ESP32)"]
-        Sensors["Cảm biến Tải trọng (3x Loadcell + HX711)"]
-        Firmware["Firmware: Collect & Control Task\n(Light Sleep / Power Save / Preferences)"]
-        Actuators["Cơ cấu chấp hành & Hiển thị\n(3x LED đỏ cảnh báo, Màn hình OLED I2C)"]
-        Sensors --> Firmware
-        Firmware --> Actuators
+    subgraph L1["TẦNG 1 · THIẾT BỊ"]
+        Device["ESP32 + Loadcell/HX711\nĐo · tính tồn kho · điều khiển LED/OLED"]
     end
-
-    subgraph Part2["PART 2: MQTT SERVICES ON SERVER"]
-        Auth["1) Authentication Service\n(Client ID, Token, ACL)"]
-        Collect["2) Collect Service\n(Lưu dữ liệu vào Database)"]
-        Control["3) Control Service\n(Phân phối lệnh Tare/Set & Rule Engine)"]
-        KeepAlive["4) Keep_alive Service\n(LWT, Heartbeat Monitor)"]
+    subgraph L2["TẦNG 2 · KẾT NỐI"]
+        Broker["MQTT Broker\nTelemetry / Command"]
     end
-
-    subgraph Part3["PART 3: WEB SERVER APP"]
-        Views["1) Data Representation\n(Giao diện Cards 3 Kệ, Biểu đồ Graphs)"]
-        DBQuery["2) Data Management\n(Truy vấn DB, Lọc, Xuất Excel/CSV)"]
-        GUI["3) Control GUI\n(Nút Tare 0g, Cài đặt kệ xuống ESP32)"]
-        Analytics["4) Data Analysis\n(Thống kê tồn kho, Phân tích tự động)"]
+    subgraph L3["TẦNG 3 · XỬ LÝ DỊCH VỤ"]
+        NodeRED["Node-RED\nNhận dữ liệu · thống kê · rule cảnh báo"]
     end
-
-    Part1 <== "MQTT Telemetry (JSON)" ==> Part2
-    Part2 <== "REST API / WebSocket" ==> Part3
+    subgraph L4["TẦNG 4 · ỨNG DỤNG"]
+        Web["Web Dashboard\nCards · biểu đồ · điều khiển"]
+        Telegram["Telegram Bot\nCảnh báo · /status · /tare"]
+    end
+    Device <== "MQTT JSON" ==> Broker
+    Broker <== "Subscribe / Publish" ==> NodeRED
+    Broker <== "MQTT WebSocket" ==> Web
+    Device -. "Telegram Bot API trực tiếp" .-> Telegram
+    NodeRED -. "Telegram Bot API" .-> Telegram
 ```
 
----
+Mô hình có bốn tầng: ESP32 đo lường và điều khiển tại kệ; MQTT vận chuyển telemetry/lệnh; Node-RED xử lý dữ liệu và là đầu mối duy nhất gửi cảnh báo tồn kho qua Telegram; dashboard và Telegram cung cấp giao diện. Firmware có thể dùng Telegram để nhận lệnh `/status` và `/tare`.
 
-### 1. PART 1: DEVICE (ESP32) – TẦNG THIẾT BỊ ĐẦU CUỐI
-* **1) Firmware (Phần mềm nhúng):**
-  * **Collect Task (Tiến trình thu thập dữ liệu):**
-    * Đọc dữ liệu từ **3 bộ cảm biến tải trọng Loadcell** qua chip ADC 24-bit **HX711** cho 3 kệ hàng (K1, K2, K3).
-    * Áp dụng bộ lọc số (lấy trung bình mẫu) để loại trừ rung động cơ học, tính toán ra khối lượng thực tế (gram).
-    * Tính toán số lượng sản phẩm tức thời: $\text{Số lượng} = \frac{\text{Tổng khối lượng}}{\text{Khối lượng 1 đơn vị}}$.
-    * Đóng gói payload JSON chứa thông tin chi tiết cả 3 kệ hàng và gửi (Publish) lên MQTT Broker qua topic: `nhom22/smartshelf/telemetry`.
-  * **Control Task (Tiến trình điều khiển & cảnh báo):**
-    * Đăng ký lắng nghe lệnh từ topic điều khiển: `nhom22/smartshelf/cmd`.
-    * **Lệnh Tare (về 0g):** Hiệu chuẩn điểm không cho từng kệ khi thay đổi khay đựng.
-    * **Lệnh Set cấu hình:** Cập nhật tên sản phẩm, trọng lượng đơn vị, ngưỡng tối thiểu và tự động lưu vào bộ nhớ Flash (`Preferences`).
-    * **Điều khiển LED cảnh báo tại chỗ:** Tự động bật sáng LED đỏ tương ứng với từng kệ khi số lượng bị giảm dưới ngưỡng tối thiểu (`low_stock = true`), tắt khi đã bổ sung hàng.
-    * **Cập nhật màn hình OLED (SSD1306):** Hiển thị trực quan trạng thái Wi-Fi/MQTT, số lượng và khối lượng 3 kệ tại hiện trường.
-  * **Power Save & Light Sleep (Tối ưu hóa năng lượng):**
-    * **Modem Sleep:** Tắt khối thu phát RF Wi-Fi giữa các chu kỳ gửi tin (giảm dòng từ 120mA xuống 20–30mA).
-    * **Light Sleep:** Đưa CPU vào chế độ ngủ nhẹ, giữ RAM, đánh thức định kỳ bằng RTC Timer (tiêu thụ ~1–2mA).
-* **2) Design Hardware (Thiết kế phần cứng):**
-  * **Mạch in (PCB):** 
-    * Khối nguồn 5V/3.3V cấp cho vi điều khiển ESP32 và 3 module HX711.
-    * Mạch đệm điều khiển 3 LED đỏ qua điện trở hạn dòng 220Ω bảo vệ chân GPIO.
-    * Cổng cắm I2C cho màn hình OLED 0.96 inch.
-  * **Hộp bảo vệ & Khung kệ:**
-    * Khung bàn cân mica hoặc gỗ cắt CNC làm 3 tầng kệ để gắn chắc chắn 3 cảm biến Loadcell.
-    * Vỏ hộp chứa mạch ESP32 gọn gàng, có lỗ đưa màn hình OLED và đèn LED ra ngoài.
+### 1. TẦNG THIẾT BỊ – ESP32
+Firmware đọc loadcell qua HX711, tính khối lượng và số lượng, điều khiển LED/OLED, gửi telemetry lên `nhom22/smartshelf/telemetry` và nhận lệnh từ `nhom22/smartshelf/cmd`. Nếu có cấu hình secrets, firmware xử lý `/start`, `/help`, `/status`, `/tare K01` đến `/tare K10`; cảnh báo thiếu hàng do Node-RED gửi để tránh trùng tin.
 
----
+### 2. TẦNG KẾT NỐI – MQTT BROKER
+Firmware, Node-RED và dashboard mặc định cùng dùng HiveMQ Public (ESP32/Node-RED TCP 1883; web WSS 8884). Mosquitto trong Docker chỉ chạy khi bật profile `local-broker`; bật profile không tự chuyển các client sang broker local. HiveMQ Public phù hợp demo, không cung cấp quyền riêng tư cho topic công khai.
 
-### 2. PART 2: MQTT SERVICES ON SERVER – TẦNG DỊCH VỤ TRUNG GIAN
-* **1) Authentication Service (Xác thực & Bảo mật):**
-  * Cấp quyền định danh thiết bị bằng `Client ID`, `Username/Password` hoặc chứng chỉ số `mTLS`.
-  * Phân quyền truy cập theo ACL (Access Control List): Thiết bị A chỉ được Publish vào `device/A/telemetry` và Subscribe `device/A/cmd`.
-* **2) Collect Service (Thu thập & Lưu trữ dữ liệu):**
-  * Tiến trình chạy ngầm (Node-RED flow hoặc backend daemon) subscribe topic telemetry `nhom22/smartshelf/telemetry`.
-  * Xác thực tính toàn vẹn của dữ liệu và ghi lịch sử các lần đo vào Database (MySQL, InfluxDB, MongoDB).
-* **3) Control Service (Điều phối lệnh & Cảnh báo):**
-  * Tiếp nhận yêu cầu điều khiển từ Web App (REST API hoặc WebSocket), chuyển đổi sang bản tin MQTT và publish xuống topic lệnh `nhom22/smartshelf/cmd`.
-  * Tích hợp dịch vụ gửi tin nhắn cảnh báo qua **Telegram Bot API** tự động nhắc nhở người quản lý kho khi có kệ bị thiếu hàng.
-* **4) Keep_alive Service (Giám sát trạng thái sống/chết):**
-  * Ứng dụng cơ chế **LWT (Last Will and Testament)** của MQTT: Khi ESP32 mất nguồn hoặc mất Wi-Fi đột ngột, Broker tự động gửi thông báo Offline lên Web Dashboard.
+### 3. TẦNG XỬ LÝ DỊCH VỤ – NODE-RED
+Node-RED nhận telemetry cho K01–K10, tính thống kê, cập nhật giao diện, tạo cảnh báo Telegram và publish lệnh MQTT. Inject mô phỏng giao dịch không chạy tự động; chỉ bấm thủ công khi cần demo để tránh ghi đè dữ liệu cảm biến.
 
----
-
-### 3. PART 3: WEB SERVER APP – TẦNG ỨNG DỤNG & GIAO DIỆN NGƯỜI DÙNG
-* **1) Data Representation (Trực quan hóa dữ liệu):**
-  * Dashboard hiển thị 3 thẻ Kệ hàng (Coca, Bánh Oishi, Mì Hảo Hảo) với tải trọng, số lượng, thanh % lấp đầy và badge trạng thái.
-  * Biểu đồ đường thời gian thực (Chart.js) cập nhật mượt mà biến thiên khối lượng và số lượng.
-* **2) Data Management (Quản lý dữ liệu & Truy vấn Database):**
-  * Lưu trữ dữ liệu lịch sử đo đạc vào bộ nhớ trình duyệt (LocalStorage / Database).
-  * Bộ lọc tìm kiếm theo kệ hàng, trạng thái thiếu hàng và nút xuất file Excel/CSV.
-* **3) Control GUI (Giao diện điều khiển):**
-  * Nút bấm Tare 0g nhanh cho từng kệ.
-  * Modal cài đặt lại tên sản phẩm, trọng lượng đơn vị và ngưỡng cảnh báo gửi xuống ESP32.
-* **4) Data Analysis (Phân tích tự động):**
-  * Thống kê tổng tồn kho, phát hiện kệ thiếu hàng và gợi ý số lượng cần nhập bù để đạt mức an toàn.
+### 4. TẦNG ỨNG DỤNG – WEB VÀ TELEGRAM
+Dashboard hiển thị trạng thái, biểu đồ và cung cấp thao tác điều khiển qua MQTT. Telegram nhận cảnh báo và hỗ trợ tra cứu/hiệu chuẩn nhanh. Hai thành phần này là giao diện người dùng của hệ thống.
 
 ---
 
@@ -105,7 +56,7 @@ flowchart LR
 | **3** | **Module khuếch đại ADC 24-bit HX711**<br>*(Đọc tín hiệu vi sai từ Loadcell vào ESP32)* | 3 mạch | ~18.000đ / cái | [Xem chi tiết Module HX711](https://nshopvn.com/product/mach-chuyen-doi-adc-24bit-loadcell-hx711/) | [🛒 Mua HX711 trên Shopee](https://shopee.vn/dientunshop?keyword=hx711) |
 | **4** | **Combo Loadcell 5kg + Khung bàn cân Mica**<br>*(Có 2 tấm mica và ốc vít để làm mặt kệ - rất tiện)* | Khuyên dùng | ~75.000đ / bộ | [Xem Combo Loadcell Mica](https://nshopvn.com/product/bo-cam-bien-can-nang-loadcell-5kg-khung-ban-can-mica/) | [🛒 Mua Bàn cân Mica Shopee](https://shopee.vn/search?keyword=b%E1%BB%99%20c%C3%A2n%20mica%20loadcell%205kg) |
 | **5** | **Màn hình OLED 0.96 inch I2C (SSD1306)**<br>*(Độ phân giải 128x64, ánh sáng Trắng/Xanh)* | 1 cái | ~45.000đ | [Xem chi tiết OLED 0.96 inch](https://nshopvn.com/product/kit-thu-phat-wifi-esp32-ble-tich-hop-oled/) | [🛒 Mua OLED 0.96 trên Shopee](https://shopee.vn/dientunshop?keyword=oled%200.96) |
-| **6** | **Túi LED đỏ 5mm + Điện trở 220Ω (hoặc 330Ω)**<br>*(Đèn cảnh báo thiếu hàng cho 3 kệ K1, K2, K3)* | 1 túi | ~12.000đ | [Xem chi tiết LED 5mm](https://nshopvn.com/product/led-5mm-sieu-sang/) | [🛒 Mua LED + Trở trên Shopee](https://shopee.vn/dientunshop?keyword=led%205mm) |
+| **6** | **LED đỏ 5mm + điện trở 220Ω (hoặc 330Ω)**<br>*(Tối đa 10 đèn cảnh báo, mỗi kệ một GPIO)* | 1 túi | ~12.000đ | [Xem chi tiết LED 5mm](https://nshopvn.com/product/led-5mm-sieu-sang/) | [🛒 Mua LED + Trở trên Shopee](https://shopee.vn/dientunshop?keyword=led%205mm) |
 | **7** | **Breadboard MB-102 (Bo cắm thử nghiệm 830 lỗ)** | 1 cái | ~28.000đ | [Xem chi tiết Breadboard](https://nshopvn.com/product/mach-nguon-cho-testboard-breadboard-mb-102-830/) | [🛒 Mua Breadboard trên Shopee](https://shopee.vn/dientunshop?keyword=breadboard%20mb102) |
 | **8** | **Tép Dây cắm Breadboard Dupont 20cm**<br>*(Gồm tép Đực - Cái và Đực - Đực)* | 2 tép | ~15.000đ / tép | [Xem chi tiết Dây Dupont](https://nshopvn.com/product/day-cam-test-board/) | [🛒 Mua Dây cắm trên Shopee](https://shopee.vn/dientunshop?keyword=d%C3%A2y%20c%E1%BA%AFm%20breadboard) |
 | **9** | **Cáp nạp dữ liệu USB (Micro-USB hoặc Type-C)** | 1 sợi | ~20.000đ | [Xem chi tiết Cáp nạp USB](https://nshopvn.com/product/cap-sac-micro-usb-1m/) | [🛒 Mua Cáp nạp USB Shopee](https://shopee.vn/dientunshop?keyword=c%C3%A1p%20micro%20usb) |
@@ -122,17 +73,17 @@ Dựa theo cấu hình chuẩn hóa định nghĩa trong [`src/main.cpp`](file:/
 +-----------------------------------------------------------------------------------+
 |               SƠ ĐỒ CHÂN ESP32 ĐIỀU KHIỂN 10 KỆ HÀNG TẠP HÓA 4.0                  |
 +-----------------------------------------------------------------------------------+
-  [Hệ Thống 10 Màn Hình OLED Riêng Biệt (ESL) trên Bus I2C Chung]
+  [Wokwi: 10 OLED SSD1306 trên bus I2C với địa chỉ mô phỏng 0x30–0x39]
     - Đường nguồn: VCC nối chung 3.3V, GND nối chung GND
     - Đường tín hiệu: SDA nối chung GPIO 21, SCL nối chung GPIO 22
-    - Đi dây theo kiểu thanh Bus dọc Daisy-Chain (từ màn 1 -> màn 2 -> màn 3...) không cắt chéo dây!
+    - Phần cứng thật: dùng TCA9548A, mỗi OLED địa chỉ 0x3C trên một kênh riêng; đặt OLED_USE_TCA9548A=1 trong secrets.h.
 
   [Đường Xung Nhịp Chung cho Toàn bộ 10 Cảm biến HX711]
     - SCK của CẢ 10 MODULE HX711 ---> Nối chung vào chân GPIO 18 (Clock Bus Daisy-Chain)
 
   [Bảng Đấu Nối 10 Kệ Hàng: Cảm biến Tải trọng, Màn hình OLED ESL & LED Cảnh báo]
     +-----+--------------------+-------------+------------+--------------+-----------------------+
-    | Kệ  | Tên Sản Phẩm       | I2C OLED    | Chân DT    | Chân LED (+) | Ghi chú Trở hạn dòng  |
+    | Kệ  | Tên Sản Phẩm       | I2C OLED*   | Chân DT    | Chân LED (+) | Ghi chú Trở hạn dòng  |
     +-----+--------------------+-------------+------------+--------------+-----------------------+
     | K01 | Coca-Cola 330ml    | 0x30 (OLED1)| GPIO 19    | GPIO 2       | Nối tiếp 220Ω về GND  |
     | K02 | Mì Hảo Hảo Tôm     | 0x31 (OLED2)| GPIO 5     | GPIO 4       | Nối tiếp 220Ω về GND  |
@@ -153,6 +104,8 @@ Dựa theo cấu hình chuẩn hóa định nghĩa trong [`src/main.cpp`](file:/
     - Dây Xanh (Green)  ---> A+ (Signal +)
 +-----------------------------------------------------------------------------------+
 ```
+
+*Các địa chỉ 0x30–0x39 trong bảng chỉ là cấu hình mô phỏng Wokwi. Mạch vật lý dùng TCA9548A; chọn kênh 0–9 cho từng màn hình cùng địa chỉ 0x3C.*
 
 ---
 
@@ -192,17 +145,17 @@ Web Server App hoàn chỉnh đã được tạo sẵn trong thư mục [`web/`]
 1. **K01 - Đồ uống:** Coca-Cola 330ml (330g, Min: 3 lon) - *Mô phỏng Wokwi*
 2. **K02 - Ăn liền:** Mì Hảo Hảo Tôm (75g, Min: 5 gói) - *Mô phỏng Wokwi*
 3. **K03 - Bánh kẹo:** Bánh Oishi Phồng Tôm (50g, Min: 4 gói) - *Mô phỏng Wokwi*
-4. **K04 - Sữa tươi:** Sữa tươi Vinamilk 180ml (190g, Min: 4 hộp) - *Node-RED Engine*
-5. **K05 - Hóa phẩm:** Bột giặt OMO Comfort 800g (800g, Min: 2 túi) - *Node-RED Engine*
-6. **K06 - Gia vị:** Dầu ăn Simply 1L (920g, Min: 3 chai) - *Node-RED Engine*
-7. **K07 - Gia vị:** Nước mắm Nam Ngư 500ml (550g, Min: 3 chai) - *Node-RED Engine*
-8. **K08 - Bánh kẹo:** Bánh Chocopie Hộp 6 cái (198g, Min: 2 hộp) - *Node-RED Engine*
-9. **K09 - Thực phẩm:** Trứng gà Ba Huân 10 quả (600g, Min: 2 vỉ) - *Node-RED Engine*
-10. **K10 - Gia vị:** Tương ớt Chinsu 250g (280g, Min: 3 chai) - *Node-RED Engine*
+4. **K04 - Sữa tươi:** Sữa tươi Vinamilk 180ml (190g, Min: 4 hộp) - *ESP32/HX711; có thể mô phỏng thủ công*
+5. **K05 - Hóa phẩm:** Bột giặt OMO Comfort 800g (800g, Min: 2 túi) - *ESP32/HX711; có thể mô phỏng thủ công*
+6. **K06 - Gia vị:** Dầu ăn Simply 1L (920g, Min: 3 chai) - *ESP32/HX711; có thể mô phỏng thủ công*
+7. **K07 - Gia vị:** Nước mắm Nam Ngư 500ml (550g, Min: 3 chai) - *ESP32/HX711; có thể mô phỏng thủ công*
+8. **K08 - Bánh kẹo:** Bánh Chocopie Hộp 6 cái (198g, Min: 2 hộp) - *ESP32/HX711; có thể mô phỏng thủ công*
+9. **K09 - Thực phẩm:** Trứng gà Ba Huân 10 quả (600g, Min: 2 vỉ) - *ESP32/HX711; có thể mô phỏng thủ công*
+10. **K10 - Gia vị:** Tương ớt Chinsu 250g (280g, Min: 3 chai) - *ESP32/HX711; có thể mô phỏng thủ công*
 
 ### 3. Phối hợp mô phỏng Hybrid:
-* **Wokwi (Interactive):** Chạy Node 1 (K01..K03) có màn hình OLED SSD1306 và LED đỏ cảnh báo, cho phép thao tác trực tiếp bằng chuột để chứng minh đọc cảm biến thật.
-* **Node-RED Engine:** Tự động duy trì và sinh biến thiên khách mua hàng / nhập hàng cho K04..K10.
+* **Wokwi (Interactive):** Sơ đồ hiện tại có đủ 10 cảm biến HX711, OLED và LED cảnh báo. Dữ liệu là mô phỏng Wokwi, không phải số đo phần cứng vật lý.
+* **Node-RED Engine:** Nhận telemetry K01..K10; sự kiện mua/nhập hàng chỉ chạy khi bấm inject mô phỏng.
 * **Web Dashboard:** Hiển thị trọn vẹn Lưới 10 Kệ hàng (Grid), bộ lọc danh mục, biểu đồ thời gian thực 10 đường và các nút bấm tương tác nhanh.
 
 

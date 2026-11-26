@@ -102,33 +102,33 @@
         "wires": []
     },
     {
-        "id": "mqtt_broker_01",
-        "type": "mqtt-broker",
-        "name": "test.mosquitto.org",
-        "broker": "test.mosquitto.org",
-        "port": "1883",
-        "clientid": "",
-        "autoConnect": true,
-        "usetls": false,
-        "protocolVersion": "4",
-        "keepalive": "60",
-        "cleansession": true,
-        "autoUnsubscribe": true,
-        "birthTopic": "",
-        "birthQos": "0",
-        "birthPayload": "",
-        "birthMsg": {},
-        "closeTopic": "",
-        "closeQos": "0",
-        "closePayload": "",
-        "closeMsg": {},
-        "willTopic": "",
-        "willQos": "0",
-        "willPayload": "",
-        "willMsg": {},
-        "userProps": "",
-        "sessionExpiry": ""
-    },
+    "id": "mqtt_broker_01",
+    "type": "mqtt-broker",
+    "name": "HiveMQ Public Broker (development)",
+    "broker": "broker.hivemq.com",
+    "port": "1883",
+    "clientid": "",
+    "autoConnect": true,
+    "usetls": false,
+    "protocolVersion": "4",
+    "keepalive": "60",
+    "cleansession": true,
+    "autoUnsubscribe": true,
+    "birthTopic": "",
+    "birthQos": "0",
+    "birthPayload": "",
+    "birthMsg": {},
+    "closeTopic": "",
+    "closeQos": "0",
+    "closePayload": "",
+    "closeMsg": {},
+    "willTopic": "",
+    "willQos": "0",
+    "willPayload": "",
+    "willMsg": {},
+    "userProps": "",
+    "sessionExpiry": ""
+},
     {
         "id": "flow_03",
         "type": "tab",
@@ -308,12 +308,12 @@
         "wires": []
     },
     {
-        "id": "tab_smart_shelf",
-        "type": "tab",
-        "label": "Nhóm 22 - Smart Grocery 10 Shelves",
-        "disabled": false,
-        "info": "## Hệ thống Quản trị Kệ hàng Tạp hóa Thông minh (10 Kệ PoC 50 SP) - Nhóm 22\n\n### Danh mục 10 Kệ hàng Tạp hóa:\n- K01: Coca-Cola 330ml (Wokwi Cảm biến 1)\n- K02: Mì Hảo Hảo Tôm Chua Cay (Wokwi Cảm biến 2)\n- K03: Bánh Oishi Phồng Tôm (Wokwi Cảm biến 3)\n- K04: Sữa tươi Vinamilk 180ml (Node-RED Virtual Shelf)\n- K05: Bột giặt OMO Comfort 800g (Node-RED Virtual Shelf)\n- K06: Dầu ăn Simply 1L (Node-RED Virtual Shelf)\n- K07: Nước mắm Nam Ngư 500ml (Node-RED Virtual Shelf)\n- K08: Bánh Chocopie Hộp 6 cái (Node-RED Virtual Shelf)\n- K09: Trứng gà Ba Huân 10 quả (Node-RED Virtual Shelf)\n- K10: Tương ớt Chinsu 250g (Node-RED Virtual Shelf)\n\n### Kiến trúc Luồng:\n- Wokwi (Phân khu A): K01..K03 truyền dữ liệu tải trọng và cảnh báo tại chỗ\n- Node-RED 10-Shelf Engine: Duy trì và tự động mô phỏng biến thiên giao dịch mua bán K04..K10\n- Hợp nhất Telemetry 10 Kệ đẩy lên Web Dashboard & Telegram Bot"
-    },
+    "id": "tab_smart_shelf",
+    "type": "tab",
+    "label": "Nhóm 22 - Smart Grocery 10 Shelves",
+    "disabled": false,
+    "info": "## Smart shelf: ten rack prototype\n\nESP32 telemetry contains readings for K01-K10 when sensors are connected. Wokwi values are simulator data. Node-RED transaction simulation is manual and does not run on a timer.\n\nMQTT default: broker.hivemq.com. Telegram reads TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_IDS from environment variables."
+},
     {
         "id": "mqtt_broker_hivemq",
         "type": "mqtt-broker",
@@ -443,38 +443,38 @@
         "wires": []
     },
     {
-        "id": "fn_parse_shelves",
-        "type": "function",
-        "z": "tab_smart_shelf",
-        "g": "group_process",
-        "name": "📊 Tách dữ liệu 3 kệ",
-        "func": "// Tách mảng shelves thành 3 output riêng biệt cho mỗi kệ\nlet shelves = msg.payload.shelves || [];\nlet k1 = null, k2 = null, k3 = null;\n\nfor (let s of shelves) {\n    let m = { payload: s, topic: msg.topic };\n    if (s.id === 'K1') k1 = m;\n    else if (s.id === 'K2') k2 = m;\n    else if (s.id === 'K3') k3 = m;\n}\n\nreturn [k1, k2, k3];",
-        "outputs": 3,
-        "timeout": 0,
-        "noerr": 0,
-        "initialize": "",
-        "finalize": "",
-        "libs": [],
-        "x": 620,
-        "y": 120,
-        "wires": [
-            [
-                "change_k1",
-                "gauge_k1_qty",
-                "chart_k1"
-            ],
-            [
-                "change_k2",
-                "gauge_k2_qty",
-                "chart_k2"
-            ],
-            [
-                "change_k3",
-                "gauge_k3_qty",
-                "chart_k3"
-            ]
+    "id": "fn_parse_shelves",
+    "type": "function",
+    "z": "tab_smart_shelf",
+    "g": "group_process",
+    "name": "Parse K01-K03 widgets",
+    "func": "// Firmware publishes canonical IDs K01..K10; detailed widgets exist for K01..K03.\nconst shelves = (msg.payload && msg.payload.shelves) || [];\nconst byId = new Map(shelves.map(s => [String(s.id).toUpperCase(), s]));\nreturn ['K01', 'K02', 'K03'].map(id => {\n    const shelf = byId.get(id);\n    return shelf ? { payload: shelf, topic: msg.topic } : null;\n});",
+    "outputs": 3,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 620,
+    "y": 120,
+    "wires": [
+        [
+            "change_k1",
+            "gauge_k1_qty",
+            "chart_k1"
+        ],
+        [
+            "change_k2",
+            "gauge_k2_qty",
+            "chart_k2"
+        ],
+        [
+            "change_k3",
+            "gauge_k3_qty",
+            "chart_k3"
         ]
-    },
+    ]
+},
     {
         "id": "fn_save_context",
         "type": "function",
@@ -1049,16 +1049,16 @@
         "h": 222
     },
     {
-        "id": "comment_telegram",
-        "type": "comment",
-        "z": "tab_smart_shelf",
-        "g": "group_telegram",
-        "name": "Kiểm tra ngưỡng → Chống spam 5 phút → Format Markdown → POST Telegram API × 2 users",
-        "info": "Chat IDs: 8349343826, 7982908394\nBot Token: 8838533602:AAERwan30IWcSVd7wOiZlTo8A68JZ1M2hM0",
-        "x": 400,
-        "y": 380,
-        "wires": []
-    },
+    "id": "comment_telegram",
+    "type": "comment",
+    "z": "tab_smart_shelf",
+    "g": "group_telegram",
+    "name": "Kiểm tra ngưỡng → Chống spam 5 phút → Format Markdown → POST Telegram API × 2 users",
+    "info": "Telegram credentials are read from TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_IDS environment variables.",
+    "x": 400,
+    "y": 380,
+    "wires": []
+},
     {
         "id": "fn_check_stock",
         "type": "function",
@@ -1107,52 +1107,52 @@
         ]
     },
     {
-        "id": "fn_format_telegram",
-        "type": "function",
-        "z": "tab_smart_shelf",
-        "g": "group_telegram",
-        "name": "✏️ Format Markdown & Multi-User",
-        "func": "// Format tin nhắn Markdown cho Telegram\nlet alertMessages = msg.alertMessages || [];\n\nlet text = `🚨 *[CẢNH BÁO KHO HÀNG - NHÓM 22]*\\n\\n`;\ntext += alertMessages.join('\\n');\ntext += `\\n\\n📅 _Thời gian: ${new Date().toLocaleString('vi-VN')}_`;\ntext += `\\n👉 *Vui lòng tiếp thêm hàng vào kệ!*`;\n\n// Danh sách Chat ID nhận cảnh báo (Cách 2: Đa người dùng)\nlet chatIds = [\"8349343826\", \"7982908394\"];\nlet messages = [];\n\nfor (let cid of chatIds) {\n    messages.push({\n        payload: {\n            chat_id: cid,\n            text: text,\n            parse_mode: \"Markdown\"\n        }\n    });\n}\n\nnode.status({fill: 'yellow', shape: 'dot', text: `Gửi tới ${chatIds.length} người...`});\nreturn [messages];",
-        "outputs": 1,
-        "timeout": 0,
-        "noerr": 0,
-        "initialize": "",
-        "finalize": "",
-        "libs": [],
-        "x": 680,
-        "y": 440,
-        "wires": [
-            [
-                "http_telegram_alert"
-            ]
+    "id": "fn_format_telegram",
+    "type": "function",
+    "z": "tab_smart_shelf",
+    "g": "group_telegram",
+    "name": "✏️ Format Markdown & Multi-User",
+    "func": "// Format tin nhắn Markdown cho Telegram\nlet alertMessages = msg.alertMessages || [];\n\nlet text = `🚨 *[CẢNH BÁO KHO HÀNG - NHÓM 22]*\\n\\n`;\ntext += alertMessages.join('\\n');\ntext += `\\n\\n📅 _Thời gian: ${new Date().toLocaleString('vi-VN')}_`;\ntext += `\\n👉 *Vui lòng tiếp thêm hàng vào kệ!*`;\n\n// Danh sách Chat ID nhận cảnh báo (Cách 2: Đa người dùng)\n// Credentials are injected by environment variables; do not store them in this flow.\nconst token = env.get('TELEGRAM_BOT_TOKEN') || '';\nconst chatIds = (env.get('TELEGRAM_CHAT_IDS') || '').split(',').map(id => id.trim()).filter(Boolean);\nif (!token || chatIds.length === 0) {\n    node.status({fill: 'grey', shape: 'ring', text: 'Telegram not configured'});\n    return null;\n}\nconst url = 'https://api.telegram.org/bot' + token + '/sendMessage';\nconst messages = chatIds.map(cid => ({url, payload: {chat_id: cid, text, parse_mode: 'MarkdownV2'}}));\nnode.status({fill: 'yellow', shape: 'dot', text: 'Sending Telegram alerts: ' + messages.length});\nreturn [messages];",
+    "outputs": 1,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 680,
+    "y": 440,
+    "wires": [
+        [
+            "http_telegram_alert"
         ]
-    },
+    ]
+},
     {
-        "id": "http_telegram_alert",
-        "type": "http request",
-        "z": "tab_smart_shelf",
-        "g": "group_telegram",
-        "name": "📤 POST Telegram API",
-        "method": "POST",
-        "ret": "obj",
-        "paytoqs": "ignore",
-        "url": "https://api.telegram.org/bot8838533602:AAERwan30IWcSVd7wOiZlTo8A68JZ1M2hM0/sendMessage",
-        "tls": "",
-        "persist": false,
-        "proxy": "",
-        "insecureHTTPParser": false,
-        "authType": "",
-        "senderr": false,
-        "headers": [],
-        "x": 920,
-        "y": 440,
-        "wires": [
-            [
-                "debug_telegram_res",
-                "fn_telegram_status"
-            ]
+    "id": "http_telegram_alert",
+    "type": "http request",
+    "z": "tab_smart_shelf",
+    "g": "group_telegram",
+    "name": "📤 POST Telegram API",
+    "method": "POST",
+    "ret": "obj",
+    "paytoqs": "ignore",
+    "url": "",
+    "tls": "",
+    "persist": false,
+    "proxy": "",
+    "insecureHTTPParser": false,
+    "authType": "",
+    "senderr": false,
+    "headers": [],
+    "x": 920,
+    "y": 440,
+    "wires": [
+        [
+            "debug_telegram_res",
+            "fn_telegram_status"
         ]
-    },
+    ]
+},
     {
         "id": "debug_telegram_res",
         "type": "debug",
@@ -1585,57 +1585,57 @@
         ]
     },
     {
-        "id": "fn_grocery_10_engine",
-        "type": "function",
-        "z": "tab_smart_shelf",
-        "g": "group_process",
-        "name": "🛒 10-Shelf Grocery Engine",
-        "func": "// Quản lý trạng thái 10 Kệ hàng Tạp hóa Thông minh (K01 - K10)\nlet default10 = [\n  { id: \"K01\", name: \"Coca-Cola 330ml\", weight: 990, unit: 330, qty: 3, min: 3, low_stock: false, category: \"Đồ uống\" },\n  { id: \"K02\", name: \"Mì Hảo Hảo Tôm\", weight: 375, unit: 75, qty: 5, min: 5, low_stock: false, category: \"Ăn liền\" },\n  { id: \"K03\", name: \"Bánh Oishi Snack\", weight: 200, unit: 50, qty: 4, min: 4, low_stock: false, category: \"Bánh kẹo\" },\n  { id: \"K04\", name: \"Sữa tươi Vinamilk\", weight: 760, unit: 190, qty: 4, min: 4, low_stock: false, category: \"Sữa tươi\" },\n  { id: \"K05\", name: \"Bột giặt OMO 800g\", weight: 2400, unit: 800, qty: 3, min: 2, low_stock: false, category: \"Hóa mỹ phẩm\" },\n  { id: \"K06\", name: \"Dầu ăn Simply 1L\", weight: 3680, unit: 920, qty: 4, min: 3, low_stock: false, category: \"Gia vị\" },\n  { id: \"K07\", name: \"Nước mắm Nam Ngư\", weight: 2200, unit: 550, qty: 4, min: 3, low_stock: false, category: \"Gia vị\" },\n  { id: \"K08\", name: \"Bánh Chocopie Hộp\", weight: 594, unit: 198, qty: 3, min: 2, low_stock: false, category: \"Bánh kẹo\" },\n  { id: \"K09\", name: \"Trứng gà Ba Huân\", weight: 1800, unit: 600, qty: 3, min: 2, low_stock: false, category: \"Thực phẩm\" },\n  { id: \"K10\", name: \"Tương ớt Chinsu\", weight: 1120, unit: 280, qty: 4, min: 3, low_stock: false, category: \"Gia vị\" }\n];\n\nlet shelves10 = flow.get('shelves10') || default10;\n\n// 1. Nhận dữ liệu thực tế từ ESP32 Wokwi (Phân khu A: K01, K02, K03)\nif (msg.payload && Array.isArray(msg.payload.shelves)) {\n    for (let s of msg.payload.shelves) {\n        let idx = shelves10.findIndex(x => x.id === s.id || (s.id === 'K1' && x.id === 'K01') || (s.id === 'K2' && x.id === 'K02') || (s.id === 'K3' && x.id === 'K03'));\n        if (idx !== -1) {\n            shelves10[idx].weight = s.weight;\n            shelves10[idx].qty = s.qty;\n            if (s.unit) shelves10[idx].unit = s.unit;\n            if (s.min !== undefined) shelves10[idx].min = s.min;\n            shelves10[idx].low_stock = (shelves10[idx].qty <= shelves10[idx].min);\n        }\n    }\n}\n\n// 2. Xử lý lệnh Tare hoặc Set cấu hình cho bất kỳ kệ nào từ Downlink\nif (msg.payload && msg.payload.cmd) {\n    let target = msg.payload.id || \"\";\n    let idx = shelves10.findIndex(x => x.id === target || (target === 'K1' && x.id === 'K01') || (target === 'K2' && x.id === 'K02') || (target === 'K3' && x.id === 'K03'));\n    if (idx !== -1) {\n        if (msg.payload.cmd === 'tare') {\n            shelves10[idx].weight = 0;\n            shelves10[idx].qty = 0;\n            shelves10[idx].low_stock = true;\n        } else if (msg.payload.cmd === 'set') {\n            if (msg.payload.name) shelves10[idx].name = msg.payload.name;\n            if (msg.payload.unit) shelves10[idx].unit = msg.payload.unit;\n            if (msg.payload.min !== undefined) shelves10[idx].min = msg.payload.min;\n            shelves10[idx].qty = Math.round(shelves10[idx].weight / shelves10[idx].unit);\n            shelves10[idx].low_stock = (shelves10[idx].qty <= shelves10[idx].min);\n        }\n    }\n}\n\n// 3. Xử lý sự kiện mô phỏng khách mua sắm tiệm tạp hóa (K04 - K10)\nif (msg.topic === 'simulate_grocery_event') {\n    let targetIdx = Math.floor(Math.random() * 7) + 3; // Index 3 đến 9 (K04-K10)\n    let s = shelves10[targetIdx];\n    let change = Math.random() > 0.35 ? -1 : 2; // Khách mua hoặc bổ sung\n    s.qty = Math.max(0, Math.min(10, s.qty + change));\n    s.weight = s.qty * s.unit;\n    s.low_stock = (s.qty <= s.min);\n}\n\n// 4. Tính toán tổng hợp\nlet alertCount = shelves10.filter(x => x.low_stock).length;\nlet uptime = (flow.get('uptime') || 0) + 2;\n\nflow.set('shelves10', shelves10);\nflow.set('uptime', uptime);\n\nmsg.payload = {\n    device: \"ESP32_SmartShelf_10Tiers\",\n    store: \"TapHoaSmart_Q7\",\n    uptime: uptime,\n    shelves: shelves10,\n    total_alerts: alertCount,\n    timestamp: new Date().toISOString()\n};\n\nflow.set('lastTelemetry', msg.payload);\nflow.set('totalAlerts', alertCount);\n\nnode.status({\n    fill: alertCount > 0 ? 'red' : 'green',\n    shape: 'dot',\n    text: `10 Kệ: ${alertCount} kệ thiếu hàng | Updated`\n});\n\nreturn msg;",
-        "outputs": 1,
-        "timeout": 0,
-        "noerr": 0,
-        "initialize": "",
-        "finalize": "",
-        "libs": [],
-        "x": 620,
-        "y": 120,
-        "wires": [
-            [
-                "fn_save_context",
-                "fn_calc_stats",
-                "fn_check_stock",
-                "template_table"
-            ]
+    "id": "fn_grocery_10_engine",
+    "type": "function",
+    "z": "tab_smart_shelf",
+    "g": "group_process",
+    "name": "🛒 10-Shelf Grocery Engine",
+    "func": "// Quản lý trạng thái 10 Kệ hàng Tạp hóa Thông minh (K01 - K10)\nlet default10 = [\n  { id: \"K01\", name: \"Coca-Cola 330ml\", weight: 990, unit: 330, qty: 3, min: 3, low_stock: false, category: \"Đồ uống\" },\n  { id: \"K02\", name: \"Mì Hảo Hảo Tôm\", weight: 375, unit: 75, qty: 5, min: 5, low_stock: false, category: \"Ăn liền\" },\n  { id: \"K03\", name: \"Bánh Oishi Snack\", weight: 200, unit: 50, qty: 4, min: 4, low_stock: false, category: \"Bánh kẹo\" },\n  { id: \"K04\", name: \"Sữa tươi Vinamilk\", weight: 760, unit: 190, qty: 4, min: 4, low_stock: false, category: \"Sữa tươi\" },\n  { id: \"K05\", name: \"Bột giặt OMO 800g\", weight: 2400, unit: 800, qty: 3, min: 2, low_stock: false, category: \"Hóa mỹ phẩm\" },\n  { id: \"K06\", name: \"Dầu ăn Simply 1L\", weight: 3680, unit: 920, qty: 4, min: 3, low_stock: false, category: \"Gia vị\" },\n  { id: \"K07\", name: \"Nước mắm Nam Ngư\", weight: 2200, unit: 550, qty: 4, min: 3, low_stock: false, category: \"Gia vị\" },\n  { id: \"K08\", name: \"Bánh Chocopie Hộp\", weight: 594, unit: 198, qty: 3, min: 2, low_stock: false, category: \"Bánh kẹo\" },\n  { id: \"K09\", name: \"Trứng gà Ba Huân\", weight: 1800, unit: 600, qty: 3, min: 2, low_stock: false, category: \"Thực phẩm\" },\n  { id: \"K10\", name: \"Tương ớt Chinsu\", weight: 1120, unit: 280, qty: 4, min: 3, low_stock: false, category: \"Gia vị\" }\n];\n\nlet shelves10 = flow.get('shelves10') || default10;\n\n// 1. Nhận dữ liệu thực tế từ ESP32 Wokwi (Phân khu A: K01, K02, K03)\nif (msg.payload && Array.isArray(msg.payload.shelves)) {\n    for (let s of msg.payload.shelves) {\n        let idx = shelves10.findIndex(x => x.id === s.id || (s.id === 'K1' && x.id === 'K01') || (s.id === 'K2' && x.id === 'K02') || (s.id === 'K3' && x.id === 'K03'));\n        if (idx !== -1) {\n            shelves10[idx].weight = s.weight;\n            shelves10[idx].qty = s.qty;\n            if (s.unit) shelves10[idx].unit = s.unit;\n            if (s.min !== undefined) shelves10[idx].min = s.min;\n            shelves10[idx].low_stock = (shelves10[idx].qty <= shelves10[idx].min);\n        }\n    }\n}\n\n// 2. Xử lý lệnh Tare hoặc Set cấu hình cho bất kỳ kệ nào từ Downlink\nif (msg.payload && msg.payload.cmd) {\n    let target = msg.payload.id || \"\";\n    let idx = shelves10.findIndex(x => x.id === target || (target === 'K1' && x.id === 'K01') || (target === 'K2' && x.id === 'K02') || (target === 'K3' && x.id === 'K03'));\n    if (idx !== -1) {\n        if (msg.payload.cmd === 'tare') {\n            shelves10[idx].weight = 0;\n            shelves10[idx].qty = 0;\n            shelves10[idx].low_stock = true;\n        } else if (msg.payload.cmd === 'set') {\n            if (msg.payload.name) shelves10[idx].name = msg.payload.name;\n            if (msg.payload.unit) shelves10[idx].unit = msg.payload.unit;\n            if (msg.payload.min !== undefined) shelves10[idx].min = msg.payload.min;\n            shelves10[idx].qty = Math.round(shelves10[idx].weight / shelves10[idx].unit);\n            shelves10[idx].low_stock = (shelves10[idx].qty <= shelves10[idx].min);\n        }\n    }\n}\n\n// 3. Simulation runs only when manually triggered; it does not overwrite telemetry on a timer.n mô phỏng khách mua sắm tiệm tạp hóa (K04 - K10)\nif (msg.topic === 'simulate_grocery_event') {\n    let targetIdx = Math.floor(Math.random() * 7) + 3; // Index 3 đến 9 (K04-K10)\n    let s = shelves10[targetIdx];\n    let change = Math.random() > 0.35 ? -1 : 2; // Khách mua hoặc bổ sung\n    s.qty = Math.max(0, Math.min(10, s.qty + change));\n    s.weight = s.qty * s.unit;\n    s.low_stock = (s.qty <= s.min);\n}\n\n// 4. Tính toán tổng hợp\nlet alertCount = shelves10.filter(x => x.low_stock).length;\nlet uptime = (flow.get('uptime') || 0) + 2;\n\nflow.set('shelves10', shelves10);\nflow.set('uptime', uptime);\n\nmsg.payload = {\n    device: msg.topic === 'simulate_grocery_event' ? 'NodeRED_Grocery_Demo' : (msg.payload.device || 'ESP32_SmartShelf_10Tiers'),\\n    source: msg.topic === 'simulate_grocery_event' ? 'node-red-demo' : (msg.payload.source || 'sample'),\n    store: \"TapHoaSmart_Q7\",\n    uptime: uptime,\n    shelves: shelves10,\n    total_alerts: alertCount,\n    timestamp: new Date().toISOString()\n};\n\nflow.set('lastTelemetry', msg.payload);\nflow.set('totalAlerts', alertCount);\n\nnode.status({\n    fill: alertCount > 0 ? 'red' : 'green',\n    shape: 'dot',\n    text: `10 Kệ: ${alertCount} kệ thiếu hàng | Updated`\n});\n\nreturn msg;",
+    "outputs": 1,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 620,
+    "y": 120,
+    "wires": [
+        [
+            "fn_save_context",
+            "fn_calc_stats",
+            "fn_check_stock",
+            "template_table"
         ]
-    },
+    ]
+},
     {
-        "id": "inject_grocery_sim",
-        "type": "inject",
-        "z": "tab_smart_shelf",
-        "g": "group_receive",
-        "name": "🛒 Mô phỏng Khách mua hàng (K04-K10)",
-        "props": [
-            {
-                "p": "payload"
-            },
-            {
-                "p": "topic",
-                "vt": "str"
-            }
-        ],
-        "repeat": "6",
-        "crontab": "",
-        "once": true,
-        "onceDelay": 1,
-        "topic": "simulate_grocery_event",
-        "payload": "{}",
-        "payloadType": "json",
-        "x": 230,
-        "y": 180,
-        "wires": [
-            [
-                "fn_grocery_10_engine"
-            ]
+    "id": "inject_grocery_sim",
+    "type": "inject",
+    "z": "tab_smart_shelf",
+    "g": "group_receive",
+    "name": "Manual grocery simulation (click to run)",
+    "props": [
+        {
+            "p": "payload"
+        },
+        {
+            "p": "topic",
+            "vt": "str"
+        }
+    ],
+    "repeat": "",
+    "crontab": "",
+    "once": false,
+    "onceDelay": 0.1,
+    "topic": "simulate_grocery_event",
+    "payload": "{}",
+    "payloadType": "json",
+    "x": 230,
+    "y": 180,
+    "wires": [
+        [
+            "fn_grocery_10_engine"
         ]
-    }
+    ]
+}
 ]

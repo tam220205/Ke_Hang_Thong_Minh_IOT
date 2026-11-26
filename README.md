@@ -18,13 +18,13 @@ Hệ thống được chia thành **10 phân khu / kệ hàng chính (PoC 10 K�
 3. **Đèn LED cảnh báo đỏ tại chỗ:** Báo động ngay lập tức khi hàng dưới mức an toàn.
 4. **Hệ thống cảnh báo Telegram Bot:** Gửi tin nhắn định dạng chuẩn `MarkdownV2` đa người nhận khi cạn hàng.
 5. **Web Dashboard tương tác:** Bảng điều khiển trực quan 10 kệ, biểu đồ tải trọng thời gian thực và bộ lọc danh mục.
-6. **Đóng gói Docker Compose turnkey:** Triển khai Node-RED, Mosquitto MQTT Broker và Web Nginx chỉ với 1 câu lệnh.
+6. **Đóng gói Docker Compose:** Triển khai Node-RED và Web Nginx; firmware, Node-RED và dashboard mặc định dùng chung HiveMQ Public. Mosquitto local chỉ là profile tùy chọn và cần đổi cấu hình client trước khi sử dụng.
 
 ---
 
 ## 📦 2. DANH MỤC 10 KỆ HÀNG TẠP HÓA ĐƯỢC CHUẨN HÓA
 
-| Màn Hình | Địa Chỉ I2C | Mã Kệ | Tên Sản Phẩm | Phân Loại | Khối Lượng Đơn Vị | Ngưỡng Báo (Min) | Vị Trí Wokwi |
+| Màn Hình | Địa Chỉ I2C mô phỏng Wokwi | Mã Kệ | Tên Sản Phẩm | Phân Loại | Khối Lượng Đơn Vị | Ngưỡng Báo (Min) | Vị Trí Wokwi |
 | :---: | :---: | :---: | :--- | :--- | :---: | :---: | :---: |
 | **OLED 1** | `0x30` | **K01** | **Coca-Cola 330ml** | Đồ uống giải khát | 330g / lon | $\le$ 3 lon | Cột Trái (Tầng 1) |
 | **OLED 2** | `0x31` | **K02** | **Mì Hảo Hảo** | Thực phẩm ăn liền | 75g / gói | $\le$ 5 gói | Cột Trái (Tầng 2) |
@@ -43,12 +43,12 @@ Hệ thống được chia thành **10 phân khu / kệ hàng chính (PoC 10 K�
 
 Toàn bộ hệ thống sử dụng kiến trúc **Bus Daisy-Chain song song**, tuyệt đối không xung đột chân:
 
-* **Bus I2C chung (10 Màn hình OLED SSD1306):**
+* **Bus I2C chung (10 màn hình trong mô phỏng Wokwi):**
   * `GPIO 21` (SDA) nối song song 10 chân SDA của 10 màn hình.
   * `GPIO 22` (SCL) nối song song 10 chân SCL của 10 màn hình.
-  * Địa chỉ I2C phân tán: `0x30` $\rightarrow$ `0x39`.
-* **Clock SCK chung (10 Module HX711):**
-  * `GPIO 18` nối song song chân SCK của cả 10 module HX711 (cho phép đọc song song 10 cảm biến trong ~50µs).
+  * Wokwi cấu hình địa chỉ riêng `0x30` $\rightarrow$ `0x39`. Phần cứng thật cần 10 kênh TCA9548A (mỗi OLED SSD1306 thường ở `0x3C`); đặt `OLED_USE_TCA9548A 1` trong `include/secrets.h`.
+* **Clock SCK chung (10 module HX711):**
+  * `GPIO 18` nối song song chân SCK của cả 10 module. Firmware chỉ chốt mẫu khi tất cả DT báo sẵn sàng; nếu có cảm biến chưa sẵn sàng, bỏ qua chu kỳ đó.
 * **10 Chân Dữ liệu DT riêng biệt:**
   * K01..K05 (Cột Trái): `GPIO 19`, `GPIO 5`, `GPIO 23`, `GPIO 17`, `GPIO 16`.
   * K06..K10 (Cột Phải): `GPIO 32`, `GPIO 36 (VP)`, `GPIO 34`, `GPIO 35`, `GPIO 39 (VN)`.
@@ -65,7 +65,7 @@ Toàn bộ hệ thống sử dụng kiến trúc **Bus Daisy-Chain song song**, 
 │                       ESP32 FIRMWARE                        │
 │   • 10 Loadcells + Parallel HX711 Read (GPIO 18 Clock)      │
 │   • 10 OLED ESL Displays (I2C 0x30..0x39)                   │
-│   • Wi-Fi Wokwi + Direct Telegram Bot Alerts                │
+│   • Wi-Fi Wokwi + Telegram Commands (optional)              │
 └──────────────────────────────┬──────────────────────────────┘
                                │ MQTT Telemetry / Cmd
                                ▼
@@ -91,19 +91,28 @@ Toàn bộ hệ thống sử dụng kiến trúc **Bus Daisy-Chain song song**, 
 
 ### Cách 1: Khởi chạy bằng Docker Compose (Khuyên dùng)
 ```bash
-# Khởi động toàn bộ cụm dịch vụ (Node-RED, Mosquitto, Nginx Dashboard)
+# Cấu hình Telegram tùy chọn: sao chép .env.example thành .env và điền token/chat IDs.
+# Docker chạy Node-RED + Nginx; HiveMQ Public là broker mặc định dùng chung.
 docker compose up -d
 
 # Truy cập các dịch vụ:
 # - Web Dashboard:  http://localhost:8088
 # - Node-RED Flow:  http://localhost:1880
-# - Mosquitto MQTT: localhost:1883 & ws://localhost:9001
 ```
+
+### Cấu hình secrets cục bộ
+* Sao chép `include/secrets.example.h` thành `include/secrets.h`; điền token Telegram và danh sách chat ID nếu cần Telegram trực tiếp từ ESP32. Để trống sẽ tắt Telegram trên firmware.
+* Chạy `Copy-Item .env.example .env` trong PowerShell rồi điền cùng token/chat IDs để bật cảnh báo Telegram từ Node-RED. Sau khi sửa `.env`, chạy `docker compose up -d --force-recreate nodered`. Không commit các tệp `include/secrets.h` hoặc `.env`.
+* Token Telegram từng có trong phiên bản mã nguồn trước đó. Thu hồi token cũ qua BotFather và tạo token mới trước khi cấu hình lại.
+* `docker compose --profile local-broker up -d mosquitto` chỉ khởi chạy broker local; các client vẫn mặc định dùng HiveMQ cho tới khi được cấu hình lại.
+
+### Phần cứng OLED thực tế
+Wokwi dùng địa chỉ OLED tùy chỉnh `0x30`–`0x39`. Với 10 module SSD1306 vật lý cùng địa chỉ `0x3C`, nối SDA/SCL của ESP32 tới SDA/SCL của TCA9548A, cấp nguồn 3V3/GND chung, nối từng OLED vào kênh SDx/SCx riêng và đặt `OLED_USE_TCA9548A 1` trong `include/secrets.h`.
 
 ### Cách 2: Chạy mô phỏng ESP32 trên Wokwi
 1. Mở dự án trong Visual Studio Code với extension **Wokwi Simulator**.
 2. Nhấn `F1` $\rightarrow$ chọn `Wokwi: Start Simulator` (hoặc mở tệp [diagram.json](file:///c:/Users/boy/Documents/PlatformIO/Projects/tesst/diagram.json)).
-3. Cả 10 màn hình OLED sẽ sáng và hiển thị tên từng sản phẩm tương ứng.
+3. Wokwi mô phỏng 10 HX711, 10 OLED và 10 LED. Telemetry được đánh dấu là dữ liệu phần cứng mô phỏng; giao dịch demo trên dashboard là dữ liệu giả lập trình duyệt.
 
 ### Cách 3: Mở Web Dashboard trực tiếp
 Mở tệp [web/index.html](file:///c:/Users/boy/Documents/PlatformIO/Projects/tesst/web/index.html) bằng bất kỳ trình duyệt nào.

@@ -1,8 +1,10 @@
 version: '3.8'
 
 services:
-  # 1. Eclipse Mosquitto MQTT Broker (Hỗ trợ TCP 1883 & WebSocket 9001)
+  # Optional local broker for manual development. The app defaults to HiveMQ;
+  # starting this profile alone does not repoint the firmware/dashboard/flows.
   mosquitto:
+    profiles: [local-broker]
     image: eclipse-mosquitto:2
     container_name: smartshelf_mosquitto
     restart: unless-stopped
@@ -16,7 +18,7 @@ services:
     networks:
       - smartshelf_net
 
-  # 2. Node-RED IoT Engine (Quản lý 10 kệ hàng & Cảnh báo Telegram)
+  # Node-RED uses the same HiveMQ public broker as the ESP32 and dashboard.
   nodered:
     image: nodered/node-red:latest
     container_name: smartshelf_nodered
@@ -25,10 +27,10 @@ services:
       - "1880:1880"
     environment:
       - TZ=Asia/Ho_Chi_Minh
+      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN:-}
+      - TELEGRAM_CHAT_IDS=${TELEGRAM_CHAT_IDS:-}
     volumes:
       - ./docker/nodered/data:/data
-    depends_on:
-      - mosquitto
     networks:
       - smartshelf_net
 

@@ -33,6 +33,7 @@ let shelfState = {
 let mqttClient = null;
 let isDemoMode = false;
 let demoInterval = null;
+let lastHardwareTelemetryAt = 0;
 let currentChartMode = 'weight'; // 'weight' or 'qty'
 let currentCategoryFilter = 'ALL';
 let historicalLogs = [];
@@ -102,6 +103,14 @@ document.addEventListener('DOMContentLoaded', () => {
   // Connect to MQTT Broker
   connectMQTT();
 
+  setInterval(() => {
+    const sourceNote = document.getElementById('telemetry-source-note');
+    if (!isDemoMode && lastHardwareTelemetryAt && Date.now() - lastHardwareTelemetryAt > 8000 && sourceNote) {
+      sourceNote.textContent = 'ESP32 chưa gửi telemetry trong hơn 8 giây; dữ liệu đang hiển thị có thể đã cũ.';
+      sourceNote.style.color = '#ef4444';
+    }
+  }, 2000);
+
   // Initial render with default values
   updateUIWithTelemetry({
     device: 'SmartGrocery_Hub10',
@@ -152,7 +161,7 @@ function connectMQTT() {
       if (topic === MQTT_CONFIG.topicTelemetry) {
         try {
           const payload = JSON.parse(message.toString());
-          updateUIWithTelemetry(payload, true);
+          if (!isDemoMode) updateUIWithTelemetry(payload, true);
         } catch (e) {
           console.warn('[MQTT PARSE ERROR]:', e);
         }
@@ -187,11 +196,9 @@ function publishCommand(cmdObj) {
     console.log('[MQTT PUB CMD] ->', MQTT_CONFIG.topicCmd, jsonStr);
     showToast(`Đã gửi lệnh [${cmdObj.cmd.toUpperCase()}] xuống Kệ ${cmdObj.id}!`, 'success');
   } else {
-    showToast(`Đã ghi nhận lệnh [${cmdObj.cmd.toUpperCase()}] cho Kệ ${cmdObj.id}!`, 'info');
+    showToast('Chưa gửi được lệnh: dashboard chưa kết nối MQTT.', 'error');
+    return;
   }
-
-  // Simulate hardware response immediately
-  simulateHardwareResponse(cmdObj);
 }
 
 // ==============================================================================
@@ -325,6 +332,20 @@ function quickAdjustQty(shelfId, delta) {
 // ==============================================================================
 function updateUIWithTelemetry(data, saveToHistory = true) {
   if (!data || !data.shelves) return;
+
+  const sourceNote = document.getElementById('telemetry-source-note');
+  if (sourceNote) {
+    const source = data.source || (String(data.device || '').includes('Giả lập') ? 'browser-demo' : 'unknown');
+    if (source === 'hardware') lastHardwareTelemetryAt = Date.now();
+    sourceNote.textContent = source === 'hardware'
+      ? `Dữ liệu cảm biến ESP32 • nhận lúc ${new Date().toLocaleTimeString('vi-VN')}`
+      : source === 'browser-demo'
+        ? 'ĐANG MÔ PHỎNG TRÊN TRÌNH DUYỆT — số liệu không đến từ cảm biến.'
+        : source === 'browser-preview'
+          ? 'Bản xem trước giao diện — chưa xác nhận số liệu từ ESP32.'
+        : 'Dữ liệu mẫu/đang chờ ESP32 gửi telemetry; chưa xác nhận đây là số đo thật.';
+    sourceNote.style.color = source === 'hardware' ? '#10b981' : '#f59e0b';
+  }
 
   let totalQty = 0;
   let totalWeight = 0;
@@ -692,6 +713,7 @@ function toggleDemoMode() {
 
       updateUIWithTelemetry({
         device: 'ESP32_SmartShelf_10Tiers (Giả lập)',
+        source: 'browser-demo',
         store: 'TapHoaSmart_Q7',
         uptime: dummyUptime,
         shelves: simulatedShelves,
@@ -702,36 +724,14 @@ function toggleDemoMode() {
     if (btn) btn.classList.remove('active-demo');
     if (btnText) btnText.textContent = 'Bật Giả lập (Demo)';
     clearInterval(demoInterval);
+    const sourceNote = document.getElementById('telemetry-source-note');
+    if (sourceNote) {
+      sourceNote.textContent = 'Đã dừng mô phỏng trình duyệt; đang chờ telemetry mới từ ESP32.';
+      sourceNote.style.color = '#f59e0b';
+    }
+    if (mqttClient && mqttClient.connected) sendSyncCmd();
     showToast('Đã TẮT chế độ Mô phỏng.', 'info');
   }
-}
-
-function simulateHardwareResponse(cmdObj) {
-  const normId = normalizeShelfId(cmdObj.id);
-  const s = shelfState[normId];
-  if (!s) return;
-
-  if (cmdObj.cmd === 'tare') {
-    s.weight = 0;
-    s.qty = 0;
-    s.low_stock = true;
-  } else if (cmdObj.cmd === 'set') {
-    if (cmdObj.name) s.name = cmdObj.name;
-    if (cmdObj.unit) s.unit = cmdObj.unit;
-    if (cmdObj.min !== undefined) s.min = cmdObj.min;
-    s.qty = Math.round(s.weight / s.unit);
-    s.low_stock = (s.qty <= s.min);
-  }
-
-  updateUIWithTelemetry({
-    device: 'TapHoa_CommandResponse',
-    store: 'TapHoaSmart_Q7',
-    uptime: Math.floor(performance.now() / 1000),
-    shelves: Object.values(shelfState),
-    total_alerts: Object.values(shelfState).filter(x => x.low_stock).length
-  }, true);
-
-  renderControlButtons();
 }
 
 // ==============================================================================

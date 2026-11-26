@@ -38,14 +38,14 @@ Ví dụ topic trong tài liệu là `warehouse/{id}/light`; payload dùng trư�
 - Cập nhật OLED cho từng kệ.
 - Gửi telemetry JSON gồm danh sách kệ và tổng số cảnh báo.
 - Nhận lệnh MQTT `set`, `tare`, `status`.
-- Nhận lệnh Telegram `/status`, `/tare`; gửi cảnh báo thiếu hàng và thông báo bổ sung hàng.
+- Nhận lệnh Telegram `/status`, `/tare` nếu có secrets; cảnh báo thiếu hàng do Node-RED gửi để tránh trùng tin.
 - Lưu tên sản phẩm, khối lượng đơn vị và ngưỡng vào Preferences.
 
 Topic MQTT trong firmware là `nhom22/smartshelf/telemetry` (ESP32 → hệ thống) và `nhom22/smartshelf/cmd` (hệ thống → ESP32). Broker được cấu hình là HiveMQ công cộng.
 
 ### 3.2 Phần cứng và mô phỏng
 
-`diagram.json` mô tả ESP32 DevKit, 10 HX711, 10 OLED SSD1306 có địa chỉ 0x30–0x39 và 10 LED có điện trở 220 Ω. GPIO18 là clock chung HX711; GPIO21/22 là I²C; mỗi kệ có chân DT và LED riêng. Sơ đồ không có 74HC595.
+`diagram.json` mô phỏng ESP32 DevKit, 10 HX711, 10 OLED SSD1306 dùng địa chỉ riêng 0x30–0x39 trong Wokwi và 10 LED có điện trở 220 Ω. GPIO18 là clock chung HX711; GPIO21/22 là I²C; mỗi kệ có chân DT và LED riêng. Sơ đồ không có 74HC595. Với phần cứng thật, firmware có chế độ TCA9548A cho OLED cùng địa chỉ.
 
 #### Sơ đồ nối dây tổng quát của dự án hiện tại
 
@@ -79,7 +79,7 @@ Mỗi kệ i:
 | K09 | GPIO35 | GPIO18 chung | 0x38 | GPIO26 |
 | K10 | GPIO39 | GPIO18 chung | 0x39 | GPIO33 |
 
-**Lưu ý:** GPIO34–GPIO39 trên ESP32 chỉ dùng làm đầu vào; trong sơ đồ chúng được dùng làm DT của HX711, phù hợp. Các GPIO LED là đầu ra riêng. Địa chỉ OLED trong bảng là địa chỉ cấu hình trong Wokwi; cần kiểm tra lại nếu thay bằng module OLED vật lý.
+**Lưu ý:** GPIO34–GPIO39 trên ESP32 chỉ dùng làm đầu vào; trong sơ đồ chúng được dùng làm DT của HX711, phù hợp. Các GPIO LED là đầu ra riêng. Địa chỉ OLED trong bảng chỉ dùng cho Wokwi; mạch thật dùng TCA9548A với từng màn hình ở một kênh riêng.
 
 #### Sơ đồ tham khảo 74HC595 trong tài liệu HTML (không phải mạch đang có)
 
@@ -110,7 +110,7 @@ Sơ đồ tham khảo này chỉ tóm tắt cách đấu được mô tả trong
 | LED | LED là đầu ra shift register | 10 LED cảnh báo nối trực tiếp GPIO | Có LED, cách điều khiển khác |
 | Cảm biến | Không phải trọng tâm | 10 HX711 đo cân | Chỉ dự án có |
 | Màn hình | Không phải trọng tâm | 10 OLED trên I²C | Chỉ dự án có |
-| MQTT broker | EMQX/Mosquitto ví dụ | HiveMQ trong firmware; Mosquitto trong Docker | Cần thống nhất cấu hình thực tế |
+| MQTT broker | EMQX/Mosquitto ví dụ | HiveMQ trong firmware, dashboard và Node-RED; Mosquitto Docker là profile tùy chọn | Đã thống nhất mặc định |
 | Topic lệnh | `warehouse/{id}/light` | `nhom22/smartshelf/cmd` | Khác topic và mục đích |
 | Topic dữ liệu | Status thiết bị tùy chọn | `nhom22/smartshelf/telemetry` | Dự án có telemetry tồn kho |
 | Payload | `action`, `ledIndex`, `mask`, `channels` | `cmd`, `id`, `name`, `unit`, `min` | Khác schema, không tương thích trực tiếp |
@@ -133,25 +133,32 @@ Sơ đồ tham khảo này chỉ tóm tắt cách đấu được mô tả trong
 4. **MQTT tập trung vào tồn kho:** payload hiện chứa thông tin 10 kệ, không chỉ trạng thái đầu ra.
 5. **Phần cứng tải khác:** hướng dẫn relay/LED nối 74HC595 trong tài liệu không thay thế việc kiểm tra mạch hiện tại. Sơ đồ dự án dùng GPIO ESP32 với LED báo và điện trở.
 
-## 7. Các điểm cần rà soát trước khi trình bày/bàn giao
+## 7. Các điểm đã xử lý trong lần cập nhật
 
-- **Broker không đồng nhất:** firmware kết nối `broker.hivemq.com`, trong khi Docker Compose dựng Mosquitto cục bộ. Cần xác nhận dashboard/Node-RED đang kết nối broker nào và thống nhất cả ba thành phần.
-- **Phạm vi kệ trên giao diện/flow:** firmware và sơ đồ có 10 kệ, nhưng một số nội dung giao diện/flow mô tả dữ liệu thật chỉ từ K01–K03 và mô phỏng K04–K10. Cần phân biệt cảm biến thật với dữ liệu mô phỏng khi thuyết trình.
-- **Mã định danh kệ:** firmware phát `K01`–`K10`, một số lệnh mẫu dùng `K1`–`K3`. Firmware hỗ trợ một số dạng rút gọn, nhưng nên thống nhất `K01`–`K10` ở dashboard, Node-RED và tài liệu.
-- **Đọc HX711:** hàm đọc đợi tín hiệu sẵn sàng của cảm biến đầu tiên rồi phát clock cho cả 10 cảm biến. Cần kiểm chứng các cảm biến còn lại đã sẵn sàng trước khi lấy mẫu đồng thời, nhất là trên phần cứng thật.
-- **Nhiều OLED trên cùng bus:** sơ đồ dùng 10 địa chỉ SSD1306 0x30–0x39. Cần xác nhận phần cứng thực tế hỗ trợ các địa chỉ này; module OLED phổ thông thường chỉ có ít lựa chọn địa chỉ và có thể cần bộ ghép kênh I²C.
-- **Thông tin xác thực:** firmware nhúng thông tin Telegram bot trực tiếp trong mã nguồn. Không đưa token/ID vào báo cáo chia sẻ; nên chuyển thông tin nhạy cảm khỏi mã nguồn và đổi token nếu mã đã được chia sẻ công khai.
-- **Bộ đệm MQTT:** callback giới hạn payload lệnh ở 255 byte trong khi MQTT buffer đặt 1024 byte. Lệnh hiện tại thường nhỏ, nhưng nên từ chối rõ payload vượt giới hạn thay vì cắt cụt.
+- Firmware, web dashboard và flow Node-RED thống nhất dùng HiveMQ Public. Mosquitto được đặt trong Docker Compose profile tùy chọn; bật profile không tự chuyển các client sang broker này.
+- Mô phỏng giao dịch Node-RED không còn tự chạy theo chu kỳ; người vận hành phải bấm inject. Dashboard đánh dấu dữ liệu demo, và lệnh điều khiển không còn giả lập phản hồi thiết bị ngay lập tức.
+- Flow Node-RED nhận ID chuẩn `K01`–`K10`; bộ tách widget K01–K03 đã chuẩn hóa ID firmware trước khi cập nhật widget.
+- Firmware chỉ đọc chuỗi HX711 khi cả 10 chân DT báo sẵn sàng; nếu hết thời gian chờ, chu kỳ đó bị bỏ qua.
+- Firmware có chế độ TCA9548A cho 10 OLED SSD1306 cùng địa chỉ vật lý `0x3C`. Mô phỏng Wokwi tiếp tục dùng địa chỉ riêng 0x30–0x39.
+- Telegram token/chat ID đã được loại khỏi mã nguồn và các flow hiện hành. Firmware dùng `include/secrets.h` bị Git bỏ qua; Node-RED dùng biến môi trường từ `.env`.
+- Payload MQTT lệnh vượt 255 byte hiện bị từ chối thay vì bị cắt cụt.
+
+## 8. Việc cần làm thủ công trước khi triển khai
+
+- Thu hồi token Telegram cũ bằng BotFather và tạo token mới: token trước đây đã từng nằm trong mã nguồn/flow. Các file hiện tại đã bỏ token, nhưng bản sao trong lịch sử Git vẫn có thể chứa thông tin cũ.
+- Sao chép `include/secrets.example.h` thành `include/secrets.h`, cấu hình token mới/chat IDs nếu cần Telegram trực tiếp từ ESP32. Sao chép `.env.example` thành `.env` cho Node-RED.
+- Khi lắp mạch thật, dùng TCA9548A cho 10 OLED SSD1306 có địa chỉ trùng nhau và đặt `OLED_USE_TCA9548A 1` trong `include/secrets.h`.
+- Hiệu chuẩn HX711, kiểm tra đủ 10 cảm biến sẵn sàng, nguồn và dây thực tế trước khi vận hành. Những thay đổi lần này chưa được biên dịch/chạy thử trên phần cứng.
 
 Các mục trên là nhận xét từ mã nguồn và cấu hình; báo cáo này không khẳng định dự án đã được biên dịch hoặc kiểm thử trên phần cứng.
 
-## 8. Kết luận
+## 9. Kết luận
 
 Dự án hiện tại triển khai hệ thống Smart Shelf 10 kệ với ESP32, HX711, OLED, LED cảnh báo, MQTT, Node-RED/dashboard và Telegram. Tài liệu HTML cung cấp kiến thức nền phù hợp về MQTT và điều khiển đầu ra số bằng ESP32, nhưng phần 74HC595, bitmask 16 kênh và payload `action` mới là nội dung bài giảng, chưa xuất hiện trong sản phẩm hiện tại.
 
 Khi thuyết trình, nên giới thiệu HTML là **tài liệu tham khảo về hướng mở rộng điều khiển đầu ra bằng 74HC595**. Sau đó mô tả riêng hệ thống hiện tại dùng GPIO trực tiếp cho LED cảnh báo và MQTT để giám sát/điều khiển cấu hình tồn kho.
 
-## 9. Tệp đã đối chiếu
+## 10. Tệp đã đối chiếu
 
 - `esp32-74hc595-mqtt.html` — slide tham khảo.
 - `src/main.cpp` — firmware ESP32.
