@@ -20,6 +20,12 @@
  *
  **/
 
+// OWASP I1/I3: không cho Node-RED chạy khi chưa đặt mật khẩu quản trị.
+// Tạo hash: docker compose run --rm nodered node-red admin hash-pw
+if (!/^\$2[aby]\$\d{2}\$/.test(process.env.NODERED_ADMIN_PASSWORD_HASH || "")) {
+    throw new Error("NODERED_ADMIN_PASSWORD_HASH chưa đặt hoặc không phải bcrypt hash. Xem README, mục Bảo mật.");
+}
+
 module.exports = {
 
 /*******************************************************************************
@@ -41,7 +47,10 @@ module.exports = {
      * node-red from being able to decrypt your existing credentials and they will be
      * lost.
      */
-    //credentialSecret: "a-secret-key",
+    // Mã hóa flows_cred.json (mật khẩu MQTT nhập trong editor) bằng khóa từ .env.
+    ...(process.env.NODERED_CREDENTIAL_SECRET
+        ? { credentialSecret: process.env.NODERED_CREDENTIAL_SECRET }
+        : {}),
 
     /** By default, the flow JSON will be formatted over multiple lines making
      * it easier to compare changes when using version control.
@@ -75,14 +84,17 @@ module.exports = {
     /** To password protect the Node-RED editor and admin API, the following
      * property can be used. See https://nodered.org/docs/security.html for details.
      */
-    //adminAuth: {
-    //    type: "credentials",
-    //    users: [{
-    //        username: "admin",
-    //        password: "$2a$08$zZWtXTja0fB1pzD4sHCMyOCMYz2Z6dNbM6tl8sJogENOMcxWV9DN.",
-    //        permissions: "*"
-    //    }]
-    //},
+    // OWASP I3: bắt buộc đăng nhập trình soạn thảo và Admin API. Tài khoản lấy từ biến môi
+    // trường (.env), mật khẩu ở dạng băm bcrypt. Thiếu biến thì Node-RED dừng khởi động
+    // thay vì chạy không có mật khẩu (xem đoạn kiểm tra ở cuối tệp).
+    adminAuth: {
+        type: "credentials",
+        users: [{
+            username: process.env.NODERED_ADMIN_USER || "admin",
+            password: process.env.NODERED_ADMIN_PASSWORD_HASH,
+            permissions: "*"
+        }]
+    },
 
     /** The following property can be used to enable HTTPS
      * This property can be either an object, containing both a (private) key
@@ -124,7 +136,11 @@ module.exports = {
      * The `pass` field is a bcrypt hash of the password.
      * See https://nodered.org/docs/security.html#generating-the-password-hash
      */
-    //httpNodeAuth: {user:"user",pass:"$2a$08$zZWtXTja0fB1pzD4sHCMyOCMYz2Z6dNbM6tl8sJogENOMcxWV9DN."},
+    // OWASP I3: các endpoint HTTP do node tạo ra (và dashboard nếu cài) cũng cần đăng nhập.
+    httpNodeAuth: {
+        user: process.env.NODERED_ADMIN_USER || "admin",
+        pass: process.env.NODERED_ADMIN_PASSWORD_HASH
+    },
     //httpStaticAuth: {user:"user",pass:"$2a$08$zZWtXTja0fB1pzD4sHCMyOCMYz2Z6dNbM6tl8sJogENOMcxWV9DN."},
 
 /*******************************************************************************

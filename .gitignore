@@ -7,3 +7,5 @@ compile_commands.json
 docker/nodered/data/.*
 include/secrets.h
 .env
+docker/mosquitto/config/passwd
+docker/nginx/auth/

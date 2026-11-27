@@ -1,0 +1,17 @@
+# Danh sách quyền theo chủ đề (OWASP I2). Người dùng không có trong tệp này
+# không đọc/ghi được chủ đề nào.
+
+# ESP32: chỉ gửi telemetry và nhận lệnh
+user shelf_device
+topic write nhom22/smartshelf/telemetry
+topic read nhom22/smartshelf/cmd
+
+# Node-RED: nhận telemetry, gửi lệnh
+user shelf_nodered
+topic read nhom22/smartshelf/telemetry
+topic write nhom22/smartshelf/cmd
+
+# Web dashboard: nhận telemetry, gửi lệnh (lệnh vẫn phải có chữ ký HMAC)
+user shelf_dashboard
+topic read nhom22/smartshelf/telemetry
+topic write nhom22/smartshelf/cmd

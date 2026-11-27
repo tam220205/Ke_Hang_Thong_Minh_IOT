@@ -102,33 +102,33 @@
         "wires": []
     },
     {
-    "id": "mqtt_broker_01",
-    "type": "mqtt-broker",
-    "name": "HiveMQ Public Broker (development)",
-    "broker": "broker.hivemq.com",
-    "port": "1883",
-    "clientid": "",
-    "autoConnect": true,
-    "usetls": false,
-    "protocolVersion": "4",
-    "keepalive": "60",
-    "cleansession": true,
-    "autoUnsubscribe": true,
-    "birthTopic": "",
-    "birthQos": "0",
-    "birthPayload": "",
-    "birthMsg": {},
-    "closeTopic": "",
-    "closeQos": "0",
-    "closePayload": "",
-    "closeMsg": {},
-    "willTopic": "",
-    "willQos": "0",
-    "willPayload": "",
-    "willMsg": {},
-    "userProps": "",
-    "sessionExpiry": ""
-},
+        "id": "mqtt_broker_01",
+        "type": "mqtt-broker",
+        "name": "HiveMQ Public Broker (development)",
+        "broker": "broker.hivemq.com",
+        "port": "1883",
+        "clientid": "",
+        "autoConnect": true,
+        "usetls": false,
+        "protocolVersion": "4",
+        "keepalive": "60",
+        "cleansession": true,
+        "autoUnsubscribe": true,
+        "birthTopic": "",
+        "birthQos": "0",
+        "birthPayload": "",
+        "birthMsg": {},
+        "closeTopic": "",
+        "closeQos": "0",
+        "closePayload": "",
+        "closeMsg": {},
+        "willTopic": "",
+        "willQos": "0",
+        "willPayload": "",
+        "willMsg": {},
+        "userProps": "",
+        "sessionExpiry": ""
+    },
     {
         "id": "flow_03",
         "type": "tab",
@@ -308,25 +308,40 @@
         "wires": []
     },
     {
-    "id": "tab_smart_shelf",
-    "type": "tab",
-    "label": "Nhóm 22 - Smart Grocery 10 Shelves",
-    "disabled": false,
-    "info": "## Smart shelf: ten rack prototype\n\nESP32 telemetry contains readings for K01-K10 when sensors are connected. Wokwi values are simulator data. Node-RED transaction simulation is manual and does not run on a timer.\n\nMQTT default: broker.hivemq.com. Telegram reads TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_IDS from environment variables."
-},
+        "id": "tab_smart_shelf",
+        "type": "tab",
+        "label": "Nhóm 22 - Smart Grocery 10 Shelves",
+        "disabled": false,
+        "info": "## Smart shelf: ten rack prototype\n\nESP32 telemetry contains readings for K01-K10 when sensors are connected. Wokwi values are simulator data. Node-RED transaction simulation is manual and does not run on a timer.\n\nMQTT default: broker.hivemq.com. Telegram reads TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_IDS from environment variables."
+    },
     {
         "id": "mqtt_broker_hivemq",
         "type": "mqtt-broker",
-        "name": "HiveMQ Public Broker",
-        "broker": "broker.hivemq.com",
-        "port": "1883",
-        "clientid": "NodeRED_Nhom22_Consumer",
+        "name": "MQTT Broker (TLS)",
+        "broker": "${MQTT_HOST}",
+        "port": "${MQTT_PORT}",
+        "clientid": "",
         "autoConnect": true,
-        "usetls": false,
+        "usetls": true,
         "protocolVersion": "4",
         "keepalive": "60",
         "cleansession": true,
-        "autoUnsubscribe": true
+        "autoUnsubscribe": true,
+        "tls": "tls_mqtt_broker"
+    },
+    {
+        "id": "tls_mqtt_broker",
+        "type": "tls-config",
+        "name": "MQTT TLS (kiểm tra chứng chỉ)",
+        "cert": "",
+        "key": "",
+        "ca": "",
+        "certname": "",
+        "keyname": "",
+        "caname": "",
+        "servername": "",
+        "verifyservercert": true,
+        "alpnprotocol": ""
     },
     {
         "id": "group_receive",
@@ -370,7 +385,7 @@
         "name": "📥 Nhận Telemetry ESP32",
         "topic": "nhom22/smartshelf/telemetry",
         "qos": "0",
-        "datatype": "json",
+        "datatype": "utf8",
         "broker": "mqtt_broker_hivemq",
         "nl": false,
         "rap": true,
@@ -380,10 +395,36 @@
         "y": 120,
         "wires": [
             [
-                "debug_raw_data",
-                "fn_grocery_10_engine"
+                "fn_verify_telemetry",
+                "debug_raw_data"
             ]
         ]
+    },
+    {
+        "id": "fn_verify_telemetry",
+        "type": "function",
+        "z": "tab_smart_shelf",
+        "name": "🔐 Xác minh chữ ký telemetry",
+        "func": "// OWASP I2: chỉ nhận telemetry có chữ ký HMAC-SHA256 đúng và còn mới.\n// Bản tin = JSON gốc S bỏ '}' cuối + ,\"sig\":\"<hex HMAC(S)>\"} (giống firmware và web).\nconst key = env.get('SHELF_HMAC_KEY') || '';\nif (key.length < 16) {\n    node.status({ fill: 'red', shape: 'ring', text: 'Chưa cấu hình SHELF_HMAC_KEY' });\n    node.warn('Bỏ telemetry: chưa cấu hình SHELF_HMAC_KEY (>= 16 ký tự)');\n    return null;\n}\n\nfunction reject(reason) {\n    const n = (context.get('rejected') || 0) + 1;\n    context.set('rejected', n);\n    node.status({ fill: 'red', shape: 'dot', text: 'Đã loại ' + n + ': ' + reason });\n    node.warn('Loại telemetry: ' + reason);\n    return null;\n}\n\nconst raw = Buffer.isBuffer(msg.payload) ? msg.payload.toString('utf8') : String(msg.payload);\nconst m = /,\"sig\":\"([0-9a-f]{64})\"\\}$/.exec(raw);\nif (!m) return reject('thiếu chữ ký');\n\nconst body = raw.slice(0, m.index) + '}';\nconst expected = crypto.createHmac('sha256', key).update(body, 'utf8').digest();\nconst got = Buffer.from(m[1], 'hex');\nif (got.length !== expected.length || !crypto.timingSafeEqual(got, expected)) return reject('chữ ký sai');\n\nlet data;\ntry { data = JSON.parse(body); } catch (e) { return reject('JSON hỏng'); }\n\n// Chống phát lại: ts (giây Unix do ESP32 lấy từ NTP) phải mới và không lùi.\nconst ts = Number(data.ts || 0);\nif (!ts || Math.abs(Date.now() / 1000 - ts) > 300) return reject('bản tin cũ hoặc ts sai');\nif (ts < (context.get('lastTs') || 0)) return reject('ts lùi (phát lại)');\ncontext.set('lastTs', ts);\n\nmsg.payload = data;\nmsg.verified = true;\nnode.status({ fill: 'green', shape: 'dot', text: 'Hợp lệ ' + new Date().toLocaleTimeString('vi-VN') });\nreturn msg;\n",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [
+            {
+                "var": "crypto",
+                "module": "crypto"
+            }
+        ],
+        "x": 400,
+        "y": 170,
+        "wires": [
+            [
+                "fn_grocery_10_engine"
+            ]
+        ],
+        "g": "group_receive"
     },
     {
         "id": "debug_raw_data",
@@ -443,38 +484,38 @@
         "wires": []
     },
     {
-    "id": "fn_parse_shelves",
-    "type": "function",
-    "z": "tab_smart_shelf",
-    "g": "group_process",
-    "name": "Parse K01-K03 widgets",
-    "func": "// Firmware publishes canonical IDs K01..K10; detailed widgets exist for K01..K03.\nconst shelves = (msg.payload && msg.payload.shelves) || [];\nconst byId = new Map(shelves.map(s => [String(s.id).toUpperCase(), s]));\nreturn ['K01', 'K02', 'K03'].map(id => {\n    const shelf = byId.get(id);\n    return shelf ? { payload: shelf, topic: msg.topic } : null;\n});",
-    "outputs": 3,
-    "timeout": 0,
-    "noerr": 0,
-    "initialize": "",
-    "finalize": "",
-    "libs": [],
-    "x": 620,
-    "y": 120,
-    "wires": [
-        [
-            "change_k1",
-            "gauge_k1_qty",
-            "chart_k1"
-        ],
-        [
-            "change_k2",
-            "gauge_k2_qty",
-            "chart_k2"
-        ],
-        [
-            "change_k3",
-            "gauge_k3_qty",
-            "chart_k3"
+        "id": "fn_parse_shelves",
+        "type": "function",
+        "z": "tab_smart_shelf",
+        "g": "group_process",
+        "name": "Parse K01-K03 widgets",
+        "func": "// Firmware publishes canonical IDs K01..K10; detailed widgets exist for K01..K03.\nconst shelves = (msg.payload && msg.payload.shelves) || [];\nconst byId = new Map(shelves.map(s => [String(s.id).toUpperCase(), s]));\nreturn ['K01', 'K02', 'K03'].map(id => {\n    const shelf = byId.get(id);\n    return shelf ? { payload: shelf, topic: msg.topic } : null;\n});",
+        "outputs": 3,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 620,
+        "y": 120,
+        "wires": [
+            [
+                "change_k1",
+                "gauge_k1_qty",
+                "chart_k1"
+            ],
+            [
+                "change_k2",
+                "gauge_k2_qty",
+                "chart_k2"
+            ],
+            [
+                "change_k3",
+                "gauge_k3_qty",
+                "chart_k3"
+            ]
         ]
-    ]
-},
+    },
     {
         "id": "fn_save_context",
         "type": "function",
@@ -1049,16 +1090,16 @@
         "h": 222
     },
     {
-    "id": "comment_telegram",
-    "type": "comment",
-    "z": "tab_smart_shelf",
-    "g": "group_telegram",
-    "name": "Kiểm tra ngưỡng → Chống spam 5 phút → Format Markdown → POST Telegram API × 2 users",
-    "info": "Telegram credentials are read from TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_IDS environment variables.",
-    "x": 400,
-    "y": 380,
-    "wires": []
-},
+        "id": "comment_telegram",
+        "type": "comment",
+        "z": "tab_smart_shelf",
+        "g": "group_telegram",
+        "name": "Kiểm tra ngưỡng → Chống spam 5 phút → Format Markdown → POST Telegram API × 2 users",
+        "info": "Telegram credentials are read from TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_IDS environment variables.",
+        "x": 400,
+        "y": 380,
+        "wires": []
+    },
     {
         "id": "fn_check_stock",
         "type": "function",
@@ -1107,52 +1148,52 @@
         ]
     },
     {
-    "id": "fn_format_telegram",
-    "type": "function",
-    "z": "tab_smart_shelf",
-    "g": "group_telegram",
-    "name": "✏️ Format Markdown & Multi-User",
-    "func": "// Format tin nhắn Markdown cho Telegram\n// MarkdownV2 bắt buộc escape _*[]()~`>#+-=|{}.!\\\\ khi các ký tự này không dùng để định dạng.\nfunction escMD(str) {\n    return String(str).replace(/([_*\\[\\]()~`>#+\\-=|{}.!\\\\])/g, '\\\\$1');\n}\n\nlet alertShelves = msg.alertShelves || [];\nlet lines = alertShelves.map(s =>\n    '⚠️ *' + escMD('KỆ [' + s.id + '] - ' + s.name) + '*: Còn *' + escMD(s.qty) + '* món ' +\n    escMD('(Tải trọng: ' + s.weight + 'g, Ngưỡng min: ' + s.min + ')'));\n\nlet text = '🚨 *' + escMD('[CẢNH BÁO KHO HÀNG - NHÓM 22]') + '*\\n\\n';\ntext += lines.join('\\n');\ntext += '\\n\\n📅 _' + escMD('Thời gian: ' + new Date().toLocaleString('vi-VN')) + '_';\ntext += '\\n👉 *' + escMD('Vui lòng tiếp thêm hàng vào kệ!') + '*';\n\n// Danh sách Chat ID nhận cảnh báo (Cách 2: Đa người dùng)\n// Credentials are injected by environment variables; do not store them in this flow.\nconst token = env.get('TELEGRAM_BOT_TOKEN') || '';\nconst chatIds = (env.get('TELEGRAM_CHAT_IDS') || '').split(',').map(id => id.trim()).filter(Boolean);\nif (!token || chatIds.length === 0) {\n    node.status({fill: 'grey', shape: 'ring', text: 'Telegram not configured'});\n    return null;\n}\nconst url = 'https://api.telegram.org/bot' + token + '/sendMessage';\nconst messages = chatIds.map(cid => ({url, payload: {chat_id: cid, text, parse_mode: 'MarkdownV2'}}));\nnode.status({fill: 'yellow', shape: 'dot', text: 'Sending Telegram alerts: ' + messages.length});\nreturn [messages];",
-    "outputs": 1,
-    "timeout": 0,
-    "noerr": 0,
-    "initialize": "",
-    "finalize": "",
-    "libs": [],
-    "x": 680,
-    "y": 440,
-    "wires": [
-        [
-            "http_telegram_alert"
+        "id": "fn_format_telegram",
+        "type": "function",
+        "z": "tab_smart_shelf",
+        "g": "group_telegram",
+        "name": "✏️ Format Markdown & Multi-User",
+        "func": "// Format tin nhắn Markdown cho Telegram\n// MarkdownV2 bắt buộc escape _*[]()~`>#+-=|{}.!\\\\ khi các ký tự này không dùng để định dạng.\nfunction escMD(str) {\n    return String(str).replace(/([_*\\[\\]()~`>#+\\-=|{}.!\\\\])/g, '\\\\$1');\n}\n\nlet alertShelves = msg.alertShelves || [];\nlet lines = alertShelves.map(s =>\n    '⚠️ *' + escMD('KỆ [' + s.id + '] - ' + s.name) + '*: Còn *' + escMD(s.qty) + '* món ' +\n    escMD('(Tải trọng: ' + s.weight + 'g, Ngưỡng min: ' + s.min + ')'));\n\nlet text = '🚨 *' + escMD('[CẢNH BÁO KHO HÀNG - NHÓM 22]') + '*\\n\\n';\ntext += lines.join('\\n');\ntext += '\\n\\n📅 _' + escMD('Thời gian: ' + new Date().toLocaleString('vi-VN')) + '_';\ntext += '\\n👉 *' + escMD('Vui lòng tiếp thêm hàng vào kệ!') + '*';\n\n// Danh sách Chat ID nhận cảnh báo (Cách 2: Đa người dùng)\n// Credentials are injected by environment variables; do not store them in this flow.\nconst token = env.get('TELEGRAM_BOT_TOKEN') || '';\nconst chatIds = (env.get('TELEGRAM_CHAT_IDS') || '').split(',').map(id => id.trim()).filter(Boolean);\nif (!token || chatIds.length === 0) {\n    node.status({fill: 'grey', shape: 'ring', text: 'Telegram not configured'});\n    return null;\n}\nconst url = 'https://api.telegram.org/bot' + token + '/sendMessage';\nconst messages = chatIds.map(cid => ({url, payload: {chat_id: cid, text, parse_mode: 'MarkdownV2'}}));\nnode.status({fill: 'yellow', shape: 'dot', text: 'Sending Telegram alerts: ' + messages.length});\nreturn [messages];",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 680,
+        "y": 440,
+        "wires": [
+            [
+                "http_telegram_alert"
+            ]
         ]
-    ]
-},
+    },
     {
-    "id": "http_telegram_alert",
-    "type": "http request",
-    "z": "tab_smart_shelf",
-    "g": "group_telegram",
-    "name": "📤 POST Telegram API",
-    "method": "POST",
-    "ret": "obj",
-    "paytoqs": "ignore",
-    "url": "",
-    "tls": "",
-    "persist": false,
-    "proxy": "",
-    "insecureHTTPParser": false,
-    "authType": "",
-    "senderr": false,
-    "headers": [],
-    "x": 920,
-    "y": 440,
-    "wires": [
-        [
-            "debug_telegram_res",
-            "fn_telegram_status"
+        "id": "http_telegram_alert",
+        "type": "http request",
+        "z": "tab_smart_shelf",
+        "g": "group_telegram",
+        "name": "📤 POST Telegram API",
+        "method": "POST",
+        "ret": "obj",
+        "paytoqs": "ignore",
+        "url": "",
+        "tls": "",
+        "persist": false,
+        "proxy": "",
+        "insecureHTTPParser": false,
+        "authType": "",
+        "senderr": false,
+        "headers": [],
+        "x": 920,
+        "y": 440,
+        "wires": [
+            [
+                "debug_telegram_res",
+                "fn_telegram_status"
+            ]
         ]
-    ]
-},
+    },
     {
         "id": "debug_telegram_res",
         "type": "debug",
@@ -1252,7 +1293,7 @@
         "y": 660,
         "wires": [
             [
-                "mqtt_out_cmd",
+                "fn_sign_cmd",
                 "debug_cmd_sent"
             ]
         ]
@@ -1279,7 +1320,7 @@
         "y": 700,
         "wires": [
             [
-                "mqtt_out_cmd",
+                "fn_sign_cmd",
                 "debug_cmd_sent"
             ]
         ]
@@ -1306,7 +1347,7 @@
         "y": 740,
         "wires": [
             [
-                "mqtt_out_cmd",
+                "fn_sign_cmd",
                 "debug_cmd_sent"
             ]
         ]
@@ -1333,7 +1374,7 @@
         "y": 800,
         "wires": [
             [
-                "mqtt_out_cmd",
+                "fn_sign_cmd",
                 "debug_cmd_sent"
             ]
         ]
@@ -1360,7 +1401,7 @@
         "y": 840,
         "wires": [
             [
-                "mqtt_out_cmd",
+                "fn_sign_cmd",
                 "debug_cmd_sent"
             ]
         ]
@@ -1387,7 +1428,7 @@
         "y": 880,
         "wires": [
             [
-                "mqtt_out_cmd",
+                "fn_sign_cmd",
                 "debug_cmd_sent"
             ]
         ]
@@ -1414,10 +1455,36 @@
         "y": 940,
         "wires": [
             [
-                "mqtt_out_cmd",
+                "fn_sign_cmd",
                 "debug_cmd_sent"
             ]
         ]
+    },
+    {
+        "id": "fn_sign_cmd",
+        "type": "function",
+        "z": "tab_smart_shelf",
+        "name": "🔏 Ký lệnh HMAC",
+        "func": "// OWASP I2/I3: ký lệnh downlink bằng HMAC-SHA256 kèm ts (ms) và nonce.\n// ESP32 từ chối lệnh không có chữ ký đúng, lệnh cũ hơn 120 s và nonce đã dùng.\nconst key = env.get('SHELF_HMAC_KEY') || '';\nif (key.length < 16) {\n    node.status({ fill: 'red', shape: 'ring', text: 'Chưa cấu hình SHELF_HMAC_KEY' });\n    node.error('Không gửi lệnh: chưa cấu hình SHELF_HMAC_KEY (>= 16 ký tự)', msg);\n    return null;\n}\n\nlet cmd = msg.payload;\nif (typeof cmd === 'string') {\n    try { cmd = JSON.parse(cmd); } catch (e) { node.error('Lệnh không phải JSON', msg); return null; }\n}\nif (!cmd || typeof cmd.cmd !== 'string') { node.error('Lệnh thiếu trường cmd', msg); return null; }\n\nconst clean = Object.assign({}, cmd);\ndelete clean.sig;\ndelete clean.ts;\ndelete clean.nonce;\nconst body = JSON.stringify(Object.assign(clean, { ts: Date.now(), nonce: crypto.randomBytes(8).toString('hex') }));\nconst sig = crypto.createHmac('sha256', key).update(body, 'utf8').digest('hex');\n\nmsg.payload = body.slice(0, -1) + ',\"sig\":\"' + sig + '\"}';\nnode.status({ fill: 'green', shape: 'dot', text: 'Đã ký lệnh ' + cmd.cmd });\nreturn msg;\n",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [
+            {
+                "var": "crypto",
+                "module": "crypto"
+            }
+        ],
+        "x": 290,
+        "y": 830,
+        "wires": [
+            [
+                "mqtt_out_cmd"
+            ]
+        ],
+        "g": "group_control"
     },
     {
         "id": "mqtt_out_cmd",
@@ -1585,57 +1652,57 @@
         ]
     },
     {
-    "id": "fn_grocery_10_engine",
-    "type": "function",
-    "z": "tab_smart_shelf",
-    "g": "group_process",
-    "name": "🛒 10-Shelf Grocery Engine",
-    "func": "// Quản lý trạng thái 10 Kệ hàng Tạp hóa Thông minh (K01 - K10)\nlet default10 = [\n  { id: \"K01\", name: \"Coca-Cola 330ml\", weight: 990, unit: 330, qty: 3, min: 3, low_stock: false, category: \"Đồ uống\" },\n  { id: \"K02\", name: \"Mì Hảo Hảo Tôm\", weight: 375, unit: 75, qty: 5, min: 5, low_stock: false, category: \"Ăn liền\" },\n  { id: \"K03\", name: \"Bánh Oishi Snack\", weight: 200, unit: 50, qty: 4, min: 4, low_stock: false, category: \"Bánh kẹo\" },\n  { id: \"K04\", name: \"Sữa tươi Vinamilk\", weight: 760, unit: 190, qty: 4, min: 4, low_stock: false, category: \"Sữa tươi\" },\n  { id: \"K05\", name: \"Bột giặt OMO 800g\", weight: 2400, unit: 800, qty: 3, min: 2, low_stock: false, category: \"Hóa mỹ phẩm\" },\n  { id: \"K06\", name: \"Dầu ăn Simply 1L\", weight: 3680, unit: 920, qty: 4, min: 3, low_stock: false, category: \"Gia vị\" },\n  { id: \"K07\", name: \"Nước mắm Nam Ngư\", weight: 2200, unit: 550, qty: 4, min: 3, low_stock: false, category: \"Gia vị\" },\n  { id: \"K08\", name: \"Bánh Chocopie Hộp\", weight: 594, unit: 198, qty: 3, min: 2, low_stock: false, category: \"Bánh kẹo\" },\n  { id: \"K09\", name: \"Trứng gà Ba Huân\", weight: 1800, unit: 600, qty: 3, min: 2, low_stock: false, category: \"Thực phẩm\" },\n  { id: \"K10\", name: \"Tương ớt Chinsu\", weight: 1120, unit: 280, qty: 4, min: 3, low_stock: false, category: \"Gia vị\" }\n];\n\nlet shelves10 = flow.get('shelves10') || default10;\n\n// 1. Nhận dữ liệu thực tế từ ESP32 Wokwi (Phân khu A: K01, K02, K03)\nif (msg.payload && Array.isArray(msg.payload.shelves)) {\n    for (let s of msg.payload.shelves) {\n        let idx = shelves10.findIndex(x => x.id === s.id || (s.id === 'K1' && x.id === 'K01') || (s.id === 'K2' && x.id === 'K02') || (s.id === 'K3' && x.id === 'K03'));\n        if (idx !== -1) {\n            shelves10[idx].weight = s.weight;\n            shelves10[idx].qty = s.qty;\n            if (s.unit) shelves10[idx].unit = s.unit;\n            if (s.min !== undefined) shelves10[idx].min = s.min;\n            shelves10[idx].low_stock = (shelves10[idx].qty <= shelves10[idx].min);\n        }\n    }\n}\n\n// 2. Xử lý lệnh Tare hoặc Set cấu hình cho bất kỳ kệ nào từ Downlink\nif (msg.payload && msg.payload.cmd) {\n    let target = msg.payload.id || \"\";\n    let idx = shelves10.findIndex(x => x.id === target || (target === 'K1' && x.id === 'K01') || (target === 'K2' && x.id === 'K02') || (target === 'K3' && x.id === 'K03'));\n    if (idx !== -1) {\n        if (msg.payload.cmd === 'tare') {\n            shelves10[idx].weight = 0;\n            shelves10[idx].qty = 0;\n            shelves10[idx].low_stock = true;\n        } else if (msg.payload.cmd === 'set') {\n            if (msg.payload.name) shelves10[idx].name = msg.payload.name;\n            if (msg.payload.unit) shelves10[idx].unit = msg.payload.unit;\n            if (msg.payload.min !== undefined) shelves10[idx].min = msg.payload.min;\n            shelves10[idx].qty = Math.round(shelves10[idx].weight / shelves10[idx].unit);\n            shelves10[idx].low_stock = (shelves10[idx].qty <= shelves10[idx].min);\n        }\n    }\n}\n\n// 3. Simulation runs only when manually triggered; it does not overwrite telemetry on a timer.\n// Mô phỏng khách mua sắm tiệm tạp hóa (K04 - K10)\nif (msg.topic === 'simulate_grocery_event') {\n    let targetIdx = Math.floor(Math.random() * 7) + 3; // Index 3 đến 9 (K04-K10)\n    let s = shelves10[targetIdx];\n    let change = Math.random() > 0.35 ? -1 : 2; // Khách mua hoặc bổ sung\n    s.qty = Math.max(0, Math.min(10, s.qty + change));\n    s.weight = s.qty * s.unit;\n    s.low_stock = (s.qty <= s.min);\n}\n\n// 4. Tính toán tổng hợp\nlet alertCount = shelves10.filter(x => x.low_stock).length;\n// Lấy uptime thật của ESP32; bản tin mô phỏng không có uptime thì giữ giá trị cũ.\nlet uptime = (msg.payload && Number.isFinite(msg.payload.uptime)) ? msg.payload.uptime : (flow.get('uptime') || 0);\n\nflow.set('shelves10', shelves10);\nflow.set('uptime', uptime);\n\nmsg.payload = {\n    device: msg.topic === 'simulate_grocery_event' ? 'NodeRED_Grocery_Demo' : (msg.payload.device || 'ESP32_SmartShelf_10Tiers'),\n    source: msg.topic === 'simulate_grocery_event' ? 'node-red-demo' : (msg.payload.source || 'sample'),\n    store: \"TapHoaSmart_Q7\",\n    uptime: uptime,\n    shelves: shelves10,\n    total_alerts: alertCount,\n    timestamp: new Date().toISOString()\n};\n\nflow.set('lastTelemetry', msg.payload);\nflow.set('totalAlerts', alertCount);\n\nnode.status({\n    fill: alertCount > 0 ? 'red' : 'green',\n    shape: 'dot',\n    text: `10 Kệ: ${alertCount} kệ thiếu hàng | Updated`\n});\n\nreturn msg;",
-    "outputs": 1,
-    "timeout": 0,
-    "noerr": 0,
-    "initialize": "",
-    "finalize": "",
-    "libs": [],
-    "x": 620,
-    "y": 120,
-    "wires": [
-        [
-            "fn_save_context",
-            "fn_calc_stats",
-            "fn_check_stock",
-            "template_table"
+        "id": "fn_grocery_10_engine",
+        "type": "function",
+        "z": "tab_smart_shelf",
+        "g": "group_process",
+        "name": "🛒 10-Shelf Grocery Engine",
+        "func": "// Quản lý trạng thái 10 Kệ hàng Tạp hóa Thông minh (K01 - K10)\nlet default10 = [\n  { id: \"K01\", name: \"Coca-Cola 330ml\", weight: 990, unit: 330, qty: 3, min: 3, low_stock: false, category: \"Đồ uống\" },\n  { id: \"K02\", name: \"Mì Hảo Hảo Tôm\", weight: 375, unit: 75, qty: 5, min: 5, low_stock: false, category: \"Ăn liền\" },\n  { id: \"K03\", name: \"Bánh Oishi Snack\", weight: 200, unit: 50, qty: 4, min: 4, low_stock: false, category: \"Bánh kẹo\" },\n  { id: \"K04\", name: \"Sữa tươi Vinamilk\", weight: 760, unit: 190, qty: 4, min: 4, low_stock: false, category: \"Sữa tươi\" },\n  { id: \"K05\", name: \"Bột giặt OMO 800g\", weight: 2400, unit: 800, qty: 3, min: 2, low_stock: false, category: \"Hóa mỹ phẩm\" },\n  { id: \"K06\", name: \"Dầu ăn Simply 1L\", weight: 3680, unit: 920, qty: 4, min: 3, low_stock: false, category: \"Gia vị\" },\n  { id: \"K07\", name: \"Nước mắm Nam Ngư\", weight: 2200, unit: 550, qty: 4, min: 3, low_stock: false, category: \"Gia vị\" },\n  { id: \"K08\", name: \"Bánh Chocopie Hộp\", weight: 594, unit: 198, qty: 3, min: 2, low_stock: false, category: \"Bánh kẹo\" },\n  { id: \"K09\", name: \"Trứng gà Ba Huân\", weight: 1800, unit: 600, qty: 3, min: 2, low_stock: false, category: \"Thực phẩm\" },\n  { id: \"K10\", name: \"Tương ớt Chinsu\", weight: 1120, unit: 280, qty: 4, min: 3, low_stock: false, category: \"Gia vị\" }\n];\n\nlet shelves10 = flow.get('shelves10') || default10;\n\n// 1. Nhận dữ liệu thực tế từ ESP32 Wokwi (Phân khu A: K01, K02, K03)\nif (msg.payload && Array.isArray(msg.payload.shelves)) {\n    for (let s of msg.payload.shelves) {\n        let idx = shelves10.findIndex(x => x.id === s.id || (s.id === 'K1' && x.id === 'K01') || (s.id === 'K2' && x.id === 'K02') || (s.id === 'K3' && x.id === 'K03'));\n        if (idx !== -1) {\n            shelves10[idx].weight = s.weight;\n            shelves10[idx].qty = s.qty;\n            if (s.unit) shelves10[idx].unit = s.unit;\n            if (s.min !== undefined) shelves10[idx].min = s.min;\n            shelves10[idx].low_stock = (shelves10[idx].qty <= shelves10[idx].min);\n        }\n    }\n}\n\n// 2. Xử lý lệnh Tare hoặc Set cấu hình cho bất kỳ kệ nào từ Downlink\nif (msg.payload && msg.payload.cmd) {\n    let target = msg.payload.id || \"\";\n    let idx = shelves10.findIndex(x => x.id === target || (target === 'K1' && x.id === 'K01') || (target === 'K2' && x.id === 'K02') || (target === 'K3' && x.id === 'K03'));\n    if (idx !== -1) {\n        if (msg.payload.cmd === 'tare') {\n            shelves10[idx].weight = 0;\n            shelves10[idx].qty = 0;\n            shelves10[idx].low_stock = true;\n        } else if (msg.payload.cmd === 'set') {\n            if (msg.payload.name) shelves10[idx].name = msg.payload.name;\n            if (msg.payload.unit) shelves10[idx].unit = msg.payload.unit;\n            if (msg.payload.min !== undefined) shelves10[idx].min = msg.payload.min;\n            shelves10[idx].qty = Math.round(shelves10[idx].weight / shelves10[idx].unit);\n            shelves10[idx].low_stock = (shelves10[idx].qty <= shelves10[idx].min);\n        }\n    }\n}\n\n// 3. Simulation runs only when manually triggered; it does not overwrite telemetry on a timer.\n// Mô phỏng khách mua sắm tiệm tạp hóa (K04 - K10)\nif (msg.topic === 'simulate_grocery_event') {\n    let targetIdx = Math.floor(Math.random() * 7) + 3; // Index 3 đến 9 (K04-K10)\n    let s = shelves10[targetIdx];\n    let change = Math.random() > 0.35 ? -1 : 2; // Khách mua hoặc bổ sung\n    s.qty = Math.max(0, Math.min(10, s.qty + change));\n    s.weight = s.qty * s.unit;\n    s.low_stock = (s.qty <= s.min);\n}\n\n// 4. Tính toán tổng hợp\nlet alertCount = shelves10.filter(x => x.low_stock).length;\n// Lấy uptime thật của ESP32; bản tin mô phỏng không có uptime thì giữ giá trị cũ.\nlet uptime = (msg.payload && Number.isFinite(msg.payload.uptime)) ? msg.payload.uptime : (flow.get('uptime') || 0);\n\nflow.set('shelves10', shelves10);\nflow.set('uptime', uptime);\n\nmsg.payload = {\n    device: msg.topic === 'simulate_grocery_event' ? 'NodeRED_Grocery_Demo' : (msg.payload.device || 'ESP32_SmartShelf_10Tiers'),\n    source: msg.topic === 'simulate_grocery_event' ? 'node-red-demo' : (msg.payload.source || 'sample'),\n    store: \"TapHoaSmart_Q7\",\n    uptime: uptime,\n    shelves: shelves10,\n    total_alerts: alertCount,\n    timestamp: new Date().toISOString()\n};\n\nflow.set('lastTelemetry', msg.payload);\nflow.set('totalAlerts', alertCount);\n\nnode.status({\n    fill: alertCount > 0 ? 'red' : 'green',\n    shape: 'dot',\n    text: `10 Kệ: ${alertCount} kệ thiếu hàng | Updated`\n});\n\nreturn msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 620,
+        "y": 120,
+        "wires": [
+            [
+                "fn_save_context",
+                "fn_calc_stats",
+                "fn_check_stock",
+                "template_table"
+            ]
         ]
-    ]
-},
+    },
     {
-    "id": "inject_grocery_sim",
-    "type": "inject",
-    "z": "tab_smart_shelf",
-    "g": "group_receive",
-    "name": "Manual grocery simulation (click to run)",
-    "props": [
-        {
-            "p": "payload"
-        },
-        {
-            "p": "topic",
-            "vt": "str"
-        }
-    ],
-    "repeat": "",
-    "crontab": "",
-    "once": false,
-    "onceDelay": 0.1,
-    "topic": "simulate_grocery_event",
-    "payload": "{}",
-    "payloadType": "json",
-    "x": 230,
-    "y": 180,
-    "wires": [
-        [
-            "fn_grocery_10_engine"
+        "id": "inject_grocery_sim",
+        "type": "inject",
+        "z": "tab_smart_shelf",
+        "g": "group_receive",
+        "name": "Manual grocery simulation (click to run)",
+        "props": [
+            {
+                "p": "payload"
+            },
+            {
+                "p": "topic",
+                "vt": "str"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "simulate_grocery_event",
+        "payload": "{}",
+        "payloadType": "json",
+        "x": 230,
+        "y": 180,
+        "wires": [
+            [
+                "fn_grocery_10_engine"
+            ]
         ]
-    ]
-}
+    }
 ]

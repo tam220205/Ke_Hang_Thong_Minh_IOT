@@ -91,20 +91,33 @@ Toàn bộ hệ thống sử dụng kiến trúc **Bus Daisy-Chain song song**, 
 
 ### Cách 1: Khởi chạy bằng Docker Compose (Khuyên dùng)
 ```bash
-# Cấu hình Telegram tùy chọn: sao chép .env.example thành .env và điền token/chat IDs.
-# Docker chạy Node-RED + Nginx; HiveMQ Public là broker mặc định dùng chung.
+# Lần đầu: tạo khóa ký, mật khẩu Node-RED / dashboard / Mosquitto (cần Docker)
+python tools/setup_security.py
+
 docker compose up -d
 
-# Truy cập các dịch vụ:
-# - Web Dashboard:  http://localhost:8088
-# - Node-RED Flow:  http://localhost:1880
+# Truy cập các dịch vụ (đều yêu cầu đăng nhập):
+# - Web Dashboard:  http://localhost:8088   (tài khoản viewer)
+# - Node-RED Flow:  http://localhost:1880   (tài khoản admin)
 ```
 
 ### Cấu hình secrets cục bộ
-* Sao chép `include/secrets.example.h` thành `include/secrets.h`; điền token Telegram và danh sách chat ID nếu cần Telegram trực tiếp từ ESP32. Để trống sẽ tắt Telegram trên firmware.
-* Chạy `Copy-Item .env.example .env` trong PowerShell rồi điền cùng token/chat IDs để bật cảnh báo Telegram từ Node-RED. Sau khi sửa `.env`, chạy `docker compose up -d --force-recreate nodered`. Không commit các tệp `include/secrets.h` hoặc `.env`.
-* Token Telegram từng có trong phiên bản mã nguồn trước đó. Thu hồi token cũ qua BotFather và tạo token mới trước khi cấu hình lại.
-* `docker compose --profile local-broker up -d mosquitto` chỉ khởi chạy broker local; các client vẫn mặc định dùng HiveMQ cho tới khi được cấu hình lại.
+* `tools/setup_security.py` tạo `.env`, `include/secrets.h` (nếu chưa có), `docker/nginx/auth/.htpasswd` và `docker/mosquitto/config/passwd`. Mật khẩu chỉ in ra một lần. Chạy lại với `--rotate` để đổi toàn bộ.
+* Điền token Telegram và chat ID vào `include/secrets.h` (ESP32) và `.env` (Node-RED). Chỉ các chat ID trong danh sách mới dùng được lệnh bot. Không commit `include/secrets.h`, `.env` hay các tệp mật khẩu.
+* Token Telegram cũ vẫn nằm trong lịch sử Git công khai: **phải thu hồi qua @BotFather (`/revoke`) và tạo token mới**.
+
+### 🔐 Bảo mật (OWASP IoT Top 10)
+| Mục | Biện pháp trong mã nguồn |
+|---|---|
+| I1 Mật khẩu ghi cứng | Token/mật khẩu nằm ngoài mã nguồn; Mosquitto tắt `allow_anonymous`, mỗi thành phần một tài khoản; Telegram chỉ nhận lệnh từ chat ID được phép |
+| I2 Dịch vụ mạng không an toàn | MQTT qua TLS (8883/wss 8884) có kiểm tra chứng chỉ; Telegram kiểm tra chứng chỉ thay cho `setInsecure()`; lệnh và telemetry ký HMAC-SHA256 kèm `ts` + `nonce` chống giả mạo và phát lại; ACL theo chủ đề trên Mosquitto |
+| I3 Giao diện hệ sinh thái | Node-RED bắt buộc đăng nhập (`adminAuth`, `httpNodeAuth`); dashboard qua Nginx có Basic Auth + CSP; dashboard cần khóa ký mới gửi được lệnh; thư viện CDN ghim phiên bản + SRI |
+
+**Khóa ký `SHELF_HMAC_KEY`** phải giống nhau ở `include/secrets.h`, `.env` và ô nhập trong nút **Bảo mật** của dashboard. Thiếu khóa thì ESP32 từ chối mọi lệnh MQTT. Định dạng bản tin đã ký: JSON gốc `S` bỏ dấu `}` cuối, nối `,"sig":"<hex HMAC-SHA256(S)>"}`.
+
+**Broker nội bộ:** `docker compose --profile local-broker up -d` rồi đặt `MQTT_HOST='mosquitto'`, `MQTT_PORT='1883'` trong `.env`. Trong editor Node-RED, bỏ chọn TLS ở node broker và nhập tài khoản `shelf_nodered`. ESP32 dùng `shelf_device` (`MQTT_USE_TLS 0` nếu broker trong LAN). Dashboard dùng `shelf_dashboard` với `ws://localhost:9001/`.
+
+**Hạn chế còn lại:** trên broker công cộng, người lạ vẫn đọc được telemetry (dù không giả mạo được); muốn giữ kín dữ liệu cần broker riêng. CSP còn `'unsafe-inline'` do giao diện dùng `onclick` trong HTML.
 
 ### Phần cứng OLED thực tế
 Wokwi dùng địa chỉ OLED tùy chỉnh `0x30`–`0x39`. Với 10 module SSD1306 vật lý cùng địa chỉ `0x3C`, nối SDA/SCL của ESP32 tới SDA/SCL của hai bộ TCA9548A (bộ thứ nhất `0x70`, bộ thứ hai `0x71` với chân A0 nối VCC), cấp nguồn 3V3/GND chung, nối K01–K08 vào kênh 0–7 của bộ `0x70` và K09–K10 vào kênh 0–1 của bộ `0x71` và đặt `OLED_USE_TCA9548A 1` trong `include/secrets.h`.
@@ -115,7 +128,7 @@ Wokwi dùng địa chỉ OLED tùy chỉnh `0x30`–`0x39`. Với 10 module SSD1
 3. Wokwi mô phỏng 10 HX711, 10 OLED và 10 LED. Telemetry được đánh dấu là dữ liệu phần cứng mô phỏng; giao dịch demo trên dashboard là dữ liệu giả lập trình duyệt.
 
 ### Cách 3: Mở Web Dashboard trực tiếp
-Mở tệp [web/index.html](file:///c:/Users/boy/Documents/PlatformIO/Projects/tesst/web/index.html) bằng bất kỳ trình duyệt nào.
+Mở tệp [web/index.html](file:///c:/Users/boy/Documents/PlatformIO/Projects/tesst/web/index.html) bằng bất kỳ trình duyệt nào, bấm nút **Bảo mật** và nhập `SHELF_HMAC_KEY` để xác minh telemetry và gửi lệnh.
 
 ---
 

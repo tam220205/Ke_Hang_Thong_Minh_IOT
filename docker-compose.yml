@@ -1,8 +1,12 @@
 version: '3.8'
 
+# Chạy "python tools/setup_security.py" trước lần đầu để tạo .env, tệp mật khẩu
+# Mosquitto và .htpasswd cho dashboard (OWASP IoT I1-I3).
+
 services:
-  # Optional local broker for manual development. The app defaults to HiveMQ;
-  # starting this profile alone does not repoint the firmware/dashboard/flows.
+  # Broker nội bộ có xác thực + ACL (hồ sơ local-broker). Bật bằng:
+  #   docker compose --profile local-broker up -d
+  # rồi đặt MQTT_HOST=mosquitto, MQTT_PORT=1883 trong .env cho Node-RED (bỏ TLS ở node broker).
   mosquitto:
     profiles: [local-broker]
     image: eclipse-mosquitto:2
@@ -12,15 +16,15 @@ services:
       - "1883:1883"
       - "9001:9001"
     volumes:
-      - ./docker/mosquitto/config/mosquitto.conf:/mosquitto/config/mosquitto.conf:ro
+      - ./docker/mosquitto/config:/mosquitto/config:ro
       - mosquitto_data:/mosquitto/data
       - mosquitto_log:/mosquitto/log
     networks:
       - smartshelf_net
 
-  # Node-RED uses the same HiveMQ public broker as the ESP32 and dashboard.
+  # Node-RED: editor/API bắt buộc đăng nhập; xác minh chữ ký telemetry và ký lệnh downlink.
   nodered:
-    image: nodered/node-red:latest
+    image: nodered/node-red:4.1
     container_name: smartshelf_nodered
     restart: unless-stopped
     ports:
@@ -29,12 +33,18 @@ services:
       - TZ=Asia/Ho_Chi_Minh
       - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN:-}
       - TELEGRAM_CHAT_IDS=${TELEGRAM_CHAT_IDS:-}
+      - MQTT_HOST=${MQTT_HOST:-broker.hivemq.com}
+      - MQTT_PORT=${MQTT_PORT:-8883}
+      - SHELF_HMAC_KEY=${SHELF_HMAC_KEY:?Chua dat SHELF_HMAC_KEY trong .env - chay python tools/setup_security.py}
+      - NODERED_ADMIN_USER=${NODERED_ADMIN_USER:-admin}
+      - NODERED_ADMIN_PASSWORD_HASH=${NODERED_ADMIN_PASSWORD_HASH:?Chua dat NODERED_ADMIN_PASSWORD_HASH trong .env}
+      - NODERED_CREDENTIAL_SECRET=${NODERED_CREDENTIAL_SECRET:-}
     volumes:
       - ./docker/nodered/data:/data
     networks:
       - smartshelf_net
 
-  # 3. Web Dashboard Nginx (Giao diện Tiệm Tạp Hóa 4.0 - 10 Kệ Hàng)
+  # Web dashboard qua Nginx: HTTP Basic Auth + header bảo mật (CSP, chống nhúng khung).
   dashboard:
     image: nginx:alpine
     container_name: smartshelf_dashboard
@@ -43,6 +53,8 @@ services:
       - "8088:80"
     volumes:
       - ./web:/usr/share/nginx/html:ro
+      - ./docker/nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./docker/nginx/auth:/etc/nginx/auth:ro
     networks:
       - smartshelf_net
 

@@ -1051,3 +1051,23 @@ button {
     grid-template-columns: 1fr;
   }
 }
+
+/* ===== Bảo mật (khóa ký HMAC) ===== */
+#btn-security {
+  border-color: var(--warning-border);
+  color: var(--warning);
+  background: var(--warning-bg);
+}
+
+#btn-security.sec-ready {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.form-hint {
+  margin: 0 0 var(--space-2);
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--text-muted);
+}

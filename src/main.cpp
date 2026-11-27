@@ -7,11 +7,37 @@
 #include <PubSubClient.h>
 #include <ArduinoJson.h>
 #include <Preferences.h>
+#include <time.h>
+#include "mbedtls/md.h"
 
 #if __has_include("secrets.h")
 #include "secrets.h"
 #else
 #include "secrets.example.h"
+#endif
+#include "mqtt_ca.h"
+
+// Giá trị mặc định cho secrets.h cũ chưa có các khóa mới.
+#ifndef MQTT_HOST
+#define MQTT_HOST "broker.hivemq.com"
+#endif
+#ifndef MQTT_PORT
+#define MQTT_PORT 8883
+#endif
+#ifndef MQTT_USE_TLS
+#define MQTT_USE_TLS 1
+#endif
+#ifndef MQTT_USERNAME
+#define MQTT_USERNAME ""
+#endif
+#ifndef MQTT_PASSWORD
+#define MQTT_PASSWORD ""
+#endif
+#ifndef MQTT_CA_CERT
+#define MQTT_CA_CERT MQTT_ROOT_CA_BUNDLE
+#endif
+#ifndef SHELF_HMAC_KEY
+#define SHELF_HMAC_KEY ""
 #endif
 
 // ==========================================
@@ -46,8 +72,11 @@ const uint8_t OLED_ADDRS[10] = {
 const char* ssid = "Wokwi-GUEST";
 const char* password = "";
 
-const char* mqtt_server = "broker.hivemq.com";
-const int   mqtt_port   = 1883;
+// OWASP I2: kết nối broker qua TLS có kiểm tra chứng chỉ, có tên đăng nhập/mật khẩu khi broker yêu cầu.
+const char* mqtt_server = MQTT_HOST;
+const int   mqtt_port   = MQTT_PORT;
+const char* mqtt_user   = MQTT_USERNAME;
+const char* mqtt_pass   = MQTT_PASSWORD;
 
 const char* TOPIC_TELEMETRY = "nhom22/smartshelf/telemetry"; // ESP32 -> Broker -> Web/Node-RED
 const char* TOPIC_CMD       = "nhom22/smartshelf/cmd";       // Web/Node-RED -> ESP32
@@ -57,9 +86,101 @@ const char* TOPIC_CMD       = "nhom22/smartshelf/cmd";       // Web/Node-RED -> 
 const uint16_t MQTT_BUFFER_SIZE = 2048;
 const size_t   JSON_BUFFER_SIZE = 1536;
 
+#if MQTT_USE_TLS
+WiFiClientSecure espClient;
+#else
 WiFiClient espClient;
+#endif
 PubSubClient mqttClient(espClient);
 Preferences prefs;
+
+// ==========================================
+// 2b. KÝ VÀ KIỂM TRA BẢN TIN BẰNG HMAC-SHA256 (OWASP I2/I3)
+// ==========================================
+// Bản tin đã ký = JSON gốc S, bỏ dấu '}' cuối, nối thêm ,"sig":"<hex HMAC(S)>"}.
+// Bên nhận cắt phần chữ ký, ghép lại '}' để có đúng S rồi tính lại HMAC.
+// Lệnh phải có "ts" (ms Unix) lệch không quá 120 s và "nonce" chưa dùng, để chống phát lại.
+const char* HMAC_KEY = SHELF_HMAC_KEY;
+const bool  hmacConfigured = strlen(SHELF_HMAC_KEY) >= 16;
+const size_t SIG_HEX_LEN = 64;
+const char   SIG_PREFIX[] = ",\"sig\":\"";
+const size_t SIG_SUFFIX_LEN = sizeof(SIG_PREFIX) - 1 + SIG_HEX_LEN + 2; // ,"sig":" + 64 hex + "}
+const long   CMD_MAX_SKEW_SEC = 120;
+const time_t TIME_VALID_AFTER = 1700000000; // 2023-11: đồng hồ đã đồng bộ NTP
+
+bool hmacSha256Hex(const char* data, size_t len, char out[SIG_HEX_LEN + 1]) {
+  uint8_t mac[32];
+  const mbedtls_md_info_t* info = mbedtls_md_info_from_type(MBEDTLS_MD_SHA256);
+  if (mbedtls_md_hmac(info, (const uint8_t*)HMAC_KEY, strlen(HMAC_KEY),
+                      (const uint8_t*)data, len, mac) != 0) {
+    return false;
+  }
+  static const char hex[] = "0123456789abcdef";
+  for (int i = 0; i < 32; i++) {
+    out[2 * i]     = hex[mac[i] >> 4];
+    out[2 * i + 1] = hex[mac[i] & 0x0F];
+  }
+  out[SIG_HEX_LEN] = '\0';
+  return true;
+}
+
+// So sánh thời gian hằng số để không lộ chữ ký qua thời gian phản hồi.
+bool constantTimeEquals(const char* a, const char* b, size_t len) {
+  uint8_t diff = 0;
+  for (size_t i = 0; i < len; i++) diff |= (uint8_t)(a[i] ^ b[i]);
+  return diff == 0;
+}
+
+// Kiểm tra chữ ký; nếu hợp lệ, ghi JSON gốc (không có "sig") vào out.
+bool verifySignedMessage(const char* msg, size_t len, char* out, size_t outSize) {
+  if (!hmacConfigured || len <= SIG_SUFFIX_LEN + 1) return false;
+  const size_t bodyLen = len - SIG_SUFFIX_LEN;      // phần trước ,"sig":"
+  if (bodyLen + 2 > outSize) return false;
+  if (strncmp(msg + bodyLen, SIG_PREFIX, sizeof(SIG_PREFIX) - 1) != 0) return false;
+  if (msg[len - 2] != '"' || msg[len - 1] != '}') return false;
+
+  memcpy(out, msg, bodyLen);
+  out[bodyLen] = '}';
+  out[bodyLen + 1] = '\0';
+
+  char expected[SIG_HEX_LEN + 1];
+  if (!hmacSha256Hex(out, bodyLen + 1, expected)) return false;
+  return constantTimeEquals(expected, msg + bodyLen + sizeof(SIG_PREFIX) - 1, SIG_HEX_LEN);
+}
+
+// Ghi chữ ký vào cuối JSON trong buf (độ dài n). Trả về độ dài mới, 0 nếu không đủ chỗ.
+size_t appendSignature(char* buf, size_t n, size_t bufSize) {
+  if (n < 2 || buf[n - 1] != '}' || n - 1 + SIG_SUFFIX_LEN + 1 > bufSize) return 0;
+  char sig[SIG_HEX_LEN + 1];
+  if (!hmacSha256Hex(buf, n, sig)) return 0;
+  size_t pos = n - 1;
+  memcpy(buf + pos, SIG_PREFIX, sizeof(SIG_PREFIX) - 1); pos += sizeof(SIG_PREFIX) - 1;
+  memcpy(buf + pos, sig, SIG_HEX_LEN);                   pos += SIG_HEX_LEN;
+  buf[pos++] = '"';
+  buf[pos++] = '}';
+  buf[pos] = '\0';
+  return pos;
+}
+
+bool clockSynced() { return time(nullptr) > TIME_VALID_AFTER; }
+
+// Nhớ 16 nonce gần nhất để từ chối lệnh bị phát lại trong cửa sổ thời gian.
+const int NONCE_CACHE = 16;
+char recentNonces[NONCE_CACHE][33];
+int nonceHead = 0;
+
+bool nonceSeen(const char* nonce) {
+  for (int i = 0; i < NONCE_CACHE; i++) {
+    if (strcmp(recentNonces[i], nonce) == 0) return true;
+  }
+  return false;
+}
+
+void rememberNonce(const char* nonce) {
+  strncpy(recentNonces[nonceHead], nonce, 32);
+  recentNonces[nonceHead][32] = '\0';
+  nonceHead = (nonceHead + 1) % NONCE_CACHE;
+}
 
 // ==========================================
 // 3. CẤU HÌNH TELEGRAM BOT TRỰC TIẾP
@@ -71,6 +192,14 @@ const bool telegramConfigured = (BOT_TOKEN[0] != '\0' && CHAT_IDS[0][0] != '\0')
 
 WiFiClientSecure secured_client;
 UniversalTelegramBot bot(BOT_TOKEN, secured_client);
+
+// OWASP I1/I3: chỉ các chat ID khai báo trong secrets.h mới được dùng lệnh bot.
+bool isAuthorizedChat(const String& chatId) {
+  for (int u = 0; u < NUM_USERS; u++) {
+    if (CHAT_IDS[u][0] != '\0' && chatId == CHAT_IDS[u]) return true;
+  }
+  return false;
+}
 
 void sendTelegramToAll(const String& message, const String& parseMode = "Markdown") {
   if (!telegramConfigured) return;
@@ -301,6 +430,8 @@ void publishTelemetry() {
   doc["node_id"] = "NODE_01";
   doc["store"] = "TapHoaSmart";
   doc["uptime"] = millis() / 1000;
+  // Thời điểm gửi (giây Unix, 0 nếu chưa đồng bộ NTP) để bên nhận loại bản tin cũ bị phát lại.
+  doc["ts"] = clockSynced() ? (long long)time(nullptr) : 0LL;
 
   int totalAlert = 0;
   JsonArray array = doc["shelves"].to<JsonArray>();
@@ -320,14 +451,22 @@ void publishTelemetry() {
   doc["total_alerts"] = totalAlert;
 
   // Kiểm tra độ dài trước khi ghi: bản tin bị cắt ngắn sẽ là JSON hỏng.
+  // Chừa chỗ cho chữ ký ,"sig":"<64 hex>"} ở cuối.
   size_t need = measureJson(doc);
-  if (need >= JSON_BUFFER_SIZE) {
+  if (need + SIG_SUFFIX_LEN >= JSON_BUFFER_SIZE) {
     Serial.printf("[MQTT PUB] LOI: ban tin %u byte vuot bo dem JSON %u byte\n",
                   (unsigned)need, (unsigned)JSON_BUFFER_SIZE);
     return;
   }
   static char buffer[JSON_BUFFER_SIZE];
   size_t n = serializeJson(doc, buffer, sizeof(buffer));
+  if (hmacConfigured) {
+    n = appendSignature(buffer, n, sizeof(buffer));
+    if (n == 0) {
+      Serial.println("[MQTT PUB] LOI: khong ky duoc ban tin");
+      return;
+    }
+  }
 
   bool success = mqttClient.publish(TOPIC_TELEMETRY, buffer);
   if (success) {
@@ -348,6 +487,12 @@ void handleTelegramIncoming(int numNewMessages) {
     String senderChatId = String(bot.messages[i].chat_id);
     String text = bot.messages[i].text;
     String fromName = bot.messages[i].from_name;
+
+    if (!isAuthorizedChat(senderChatId)) {
+      Serial.printf("[TELEGRAM] Tu choi lenh tu chat khong duoc phep: %s\n", senderChatId.c_str());
+      bot.sendMessage(senderChatId, "Bạn không có quyền điều khiển hệ thống này.");
+      continue;
+    }
 
     if (text == "/start" || text == "/help") {
       String welcome = "Xin chào *" + fromName + "*!\n";
@@ -416,10 +561,30 @@ bool isShelfMatch(const char* target, const char* shelfId) {
 // ==========================================
 // 10. XỬ LÝ LỆNH DOWNLINK (MQTT CMD)
 // ==========================================
+// payload là JSON đã qua kiểm tra chữ ký. Hàm còn kiểm tra thời gian, nonce và miền giá trị.
 void handleIncomingCommand(const char* payload) {
   JsonDocument doc;
   DeserializationError error = deserializeJson(doc, payload);
   if (error) return;
+
+  // Chống phát lại: lệnh phải mới (lệch <= 120 s so với giờ NTP) và nonce chưa từng dùng.
+  if (!clockSynced()) {
+    Serial.println("[MQTT CMD] Tu choi: dong ho chua dong bo NTP");
+    return;
+  }
+  const long long tsMs = doc["ts"] | 0LL;
+  const char* nonce = doc["nonce"] | "";
+  const long long skew = (long long)time(nullptr) - tsMs / 1000;
+  const size_t nonceLen = strlen(nonce);
+  if (tsMs <= 0 || skew > CMD_MAX_SKEW_SEC || skew < -CMD_MAX_SKEW_SEC) {
+    Serial.println("[MQTT CMD] Tu choi: lenh het han hoac sai thoi gian");
+    return;
+  }
+  if (nonceLen < 8 || nonceLen > 32 || nonceSeen(nonce)) {
+    Serial.println("[MQTT CMD] Tu choi: nonce khong hop le hoac da dung (phat lai)");
+    return;
+  }
+  rememberNonce(nonce);
 
   const char* cmd = doc["cmd"] | "";
 
@@ -427,9 +592,22 @@ void handleIncomingCommand(const char* payload) {
     const char* targetId = doc["id"] | "";
     for (int i = 0; i < 10; i++) {
       if (isShelfMatch(targetId, shelves[i].id)) {
-        if (!doc["name"].isNull()) shelves[i].name = doc["name"].as<String>();
-        if (!doc["unit"].isNull()) shelves[i].unit_weight = doc["unit"].as<float>();
-        if (!doc["min"].isNull())  shelves[i].min_qty = doc["min"].as<int>();
+        // Kiểm tra miền giá trị trước khi ghi Flash.
+        if (!doc["name"].isNull()) {
+          String newName = doc["name"].as<String>();
+          if (newName.length() == 0 || newName.length() > 32) return;
+          shelves[i].name = newName;
+        }
+        if (!doc["unit"].isNull()) {
+          float unit = doc["unit"].as<float>();
+          if (!(unit >= 1 && unit <= 50000)) return;
+          shelves[i].unit_weight = unit;
+        }
+        if (!doc["min"].isNull()) {
+          int minQty = doc["min"].as<int>();
+          if (minQty < 0 || minQty > 999) return;
+          shelves[i].min_qty = minQty;
+        }
 
         saveShelfConfig(i);
 
@@ -464,25 +642,39 @@ void handleIncomingCommand(const char* payload) {
 
 void mqttCallback(char* topic, byte* payload, unsigned int length) {
   (void)topic;
-  char msgBuffer[256];
+  static char msgBuffer[512];
+  static char verified[512];
   if (length >= sizeof(msgBuffer)) {
     Serial.printf("[MQTT CMD] Bo qua payload qua dai: %u bytes\n", length);
     return;
   }
   memcpy(msgBuffer, payload, length);
   msgBuffer[length] = '\0';
-  handleIncomingCommand(msgBuffer);
+
+  if (!hmacConfigured) {
+    Serial.println("[MQTT CMD] Tu choi: chua cau hinh SHELF_HMAC_KEY (>= 16 ky tu)");
+    return;
+  }
+  if (!verifySignedMessage(msgBuffer, length, verified, sizeof(verified))) {
+    Serial.println("[MQTT CMD] Tu choi: chu ky HMAC sai hoac thieu");
+    return;
+  }
+  handleIncomingCommand(verified);
 }
 
 bool reconnectMQTT() {
   if (mqttClient.connected()) return true;
 
   String clientId = "ESP32_SmartShelf_10Tiers_" + String((uint32_t)ESP.getEfuseMac(), HEX);
-  if (mqttClient.connect(clientId.c_str())) {
+  bool ok = (mqtt_user[0] != '\0')
+              ? mqttClient.connect(clientId.c_str(), mqtt_user, mqtt_pass)
+              : mqttClient.connect(clientId.c_str());
+  if (ok) {
     mqttClient.subscribe(TOPIC_CMD);
     publishTelemetry();
     return true;
   }
+  Serial.printf("[MQTT] Ket noi that bai, state=%d\n", mqttClient.state());
   return false;
 }
 
@@ -528,8 +720,14 @@ void setup() {
   }
   Serial.println("\nWiFi Connected! IP: " + WiFi.localIP().toString());
 
-  // 6. Cấu hình Telegram Client
-  secured_client.setInsecure();
+  // 6. Đồng bộ giờ NTP (cần cho kiểm tra chứng chỉ TLS và chống phát lại lệnh)
+  configTime(0, 0, "pool.ntp.org", "time.google.com");
+  unsigned long ntpStart = millis();
+  while (!clockSynced() && millis() - ntpStart < 10000) delay(200);
+  Serial.println(clockSynced() ? "[NTP] Da dong bo gio" : "[NTP] Chua dong bo; lenh MQTT se bi tu choi den khi co gio");
+
+  // 7. Cấu hình Telegram Client: kiểm tra chứng chỉ api.telegram.org (Go Daddy Root G2)
+  secured_client.setCACert(TELEGRAM_CERTIFICATE_ROOT);
   secured_client.setTimeout(3000);
 
   if (telegramConfigured) {
@@ -542,7 +740,15 @@ void setup() {
     Serial.println("[TELEGRAM] Chua cau hinh token/chat ID; bo qua Telegram");
   }
 
-  // 7. Cấu hình MQTT
+  // 8. Cấu hình MQTT (TLS + xác thực broker + ký HMAC)
+#if MQTT_USE_TLS
+  espClient.setCACert(MQTT_CA_CERT);
+  espClient.setTimeout(5000);
+#endif
+  if (!hmacConfigured) {
+    Serial.println("[BAO MAT] CANH BAO: SHELF_HMAC_KEY chua cau hinh (>= 16 ky tu): "
+                   "telemetry khong ky, moi lenh MQTT bi tu choi");
+  }
   mqttClient.setServer(mqtt_server, mqtt_port);
   mqttClient.setCallback(mqttCallback);
   if (!mqttClient.setBufferSize(MQTT_BUFFER_SIZE)) {

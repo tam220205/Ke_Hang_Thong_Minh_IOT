@@ -15,11 +15,16 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 
   <!-- Chart.js & MQTT.js CDN -->
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-  <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
+  <!-- Ghim phiên bản + Subresource Integrity: trình duyệt từ chối chạy nếu CDN trả về tệp bị sửa -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.6.2/dist/chart.umd.min.js"
+          integrity="sha384-wFIO1nJgUOP2XDesMi2Xqyej8+jLnzOfBrJbdvz7Pp+UI88xOiL08fKFupi2KqR0"
+          crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/mqtt@5.16.1/dist/mqtt.min.js"
+          integrity="sha384-ilRYg/zm2XqUafLvBoGVk40UfNRnvUkYMy+e/JPo4YgsFR6X9Q3jYEkqFQXquX4r"
+          crossorigin="anonymous"></script>
 
   <!-- Stylesheet -->
-  <link rel="stylesheet" href="style.css?v=20261127c">
+  <link rel="stylesheet" href="style.css?v=20261127d">
 </head>
 <body>
   <div class="app-container">
@@ -34,6 +39,10 @@
           <span class="status-dot"></span>
           <span id="mqtt-status-text">Đang kết nối MQTT...</span>
         </div>
+
+        <button id="btn-security" class="btn-secondary" title="Nhập khóa ký lệnh và tài khoản MQTT cho phiên này">
+          <span id="security-badge-text">Chưa nhập khóa</span>
+        </button>
 
         <button id="btn-toggle-demo" class="btn-secondary" title="Bật/tắt chế độ giả lập số liệu khi chưa kết nối ESP32">
           <span id="demo-btn-text">Giả lập</span>
@@ -246,7 +255,7 @@
               <div class="mqtt-info-grid">
                 <div class="info-item">
                   <span class="label">Broker</span>
-                  <span class="val">broker.hivemq.com (WSS 8884 / TCP 1883)</span>
+                  <span class="val">broker.hivemq.com (WSS 8884 / MQTTS 8883) • lệnh ký HMAC • telemetry bị loại: <span id="sec-rejected-count">0</span></span>
                 </div>
                 <div class="info-item">
                   <span class="label">Topic Telemetry (Uplink)</span>
@@ -314,6 +323,42 @@
     </div>
   </div>
 
+  <!-- MODAL: BẢO MẬT (khóa ký HMAC + tài khoản MQTT, chỉ lưu trong phiên) -->
+  <div id="security-modal" class="modal-overlay">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3>Bảo mật kết nối</h3>
+        <button class="modal-close" onclick="closeSecurityModal()" aria-label="Đóng">&times;</button>
+      </div>
+      <form id="form-security" onsubmit="handleSaveSecurity(event)" autocomplete="off">
+        <div class="form-group">
+          <label for="sec-hmac-key">Khóa ký lệnh (SHELF_HMAC_KEY, tối thiểu 16 ký tự)</label>
+          <input type="password" id="sec-hmac-key" class="custom-input" minlength="16" placeholder="Để trống để giữ khóa hiện tại">
+        </div>
+        <div class="form-group">
+          <label for="sec-broker-url">Broker WebSocket (wss://)</label>
+          <input type="text" id="sec-broker-url" class="custom-input" placeholder="wss://broker.hivemq.com:8884/mqtt">
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label for="sec-mqtt-user">Tài khoản MQTT</label>
+            <input type="text" id="sec-mqtt-user" class="custom-input" placeholder="Bỏ trống nếu broker không yêu cầu">
+          </div>
+          <div class="form-group">
+            <label for="sec-mqtt-pass">Mật khẩu MQTT</label>
+            <input type="password" id="sec-mqtt-pass" class="custom-input" placeholder="Để trống để giữ nguyên">
+          </div>
+        </div>
+        <p class="form-hint">Khóa và mật khẩu chỉ lưu trong phiên của tab này (sessionStorage), đóng tab là mất. Không có khóa thì dashboard không gửi được lệnh và không xác minh được telemetry.</p>
+        <div class="modal-footer">
+          <button type="button" class="btn-secondary" onclick="clearSecuritySettings()">Xóa khóa</button>
+          <button type="submit" class="btn-primary">Lưu cho phiên này</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script src="security.js"></script>
   <script src="app.js"></script>
 </body>
 </html>

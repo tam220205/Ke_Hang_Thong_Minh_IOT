@@ -6,11 +6,8 @@
  */
 
 // 1. MQTT BROKER CONFIGURATION
+// Địa chỉ broker (wss://), tài khoản MQTT và khóa ký lấy từ hộp thoại Bảo mật (security.js).
 const MQTT_CONFIG = {
-  host: 'broker.hivemq.com',
-  port: 8884, // WebSocket Secure (WSS)
-  path: '/mqtt',
-  protocol: 'wss',
   clientId: 'TapHoaWeb_' + Math.random().toString(16).substring(2, 10),
   topicTelemetry: 'nhom22/smartshelf/telemetry',
   topicCmd: 'nhom22/smartshelf/cmd'
@@ -72,8 +69,8 @@ function normalizeShelfId(id) {
   return id;
 }
 
-// Telemetry đi qua broker công cộng không xác thực: ai cũng publish được, nên mọi chuỗi nhận
-// từ MQTT phải escape trước khi chèn bằng innerHTML.
+// Telemetry được xác minh chữ ký HMAC khi đã nhập khóa; dù vậy mọi chuỗi nhận từ MQTT
+// vẫn được escape trước khi chèn bằng innerHTML (phòng thủ nhiều lớp).
 const VALID_SHELF_ID = /^K(0[1-9]|10)$/;
 function escapeHtml(value) {
   return String(value ?? '').replace(/[&<>"']/g, ch => ({
@@ -109,8 +106,12 @@ document.addEventListener('DOMContentLoaded', () => {
   // Setup Event Listeners
   setupEventListeners();
 
-  // Connect to MQTT Broker
-  connectMQTT();
+  // Nạp khóa ký của phiên (nếu đã nhập), rồi kết nối MQTT Broker
+  document.getElementById('btn-security')?.addEventListener('click', openSecurityModal);
+  initSigningKey().catch(err => console.error('[SECURITY]', err)).finally(() => {
+    updateSecurityBadge();
+    connectMQTT();
+  });
 
   setInterval(() => {
     const sourceNote = document.getElementById('telemetry-source-note');
@@ -139,7 +140,7 @@ function connectMQTT() {
   if (statusBadge) statusBadge.className = 'status-badge connecting';
   if (statusText) statusText.textContent = 'Đang kết nối Broker...';
 
-  const connectUrl = `${MQTT_CONFIG.protocol}://${MQTT_CONFIG.host}:${MQTT_CONFIG.port}${MQTT_CONFIG.path}`;
+  const connectUrl = getBrokerUrl();
   console.log('[MQTT] Connecting to:', connectUrl);
 
   try {
@@ -147,14 +148,15 @@ function connectMQTT() {
       clientId: MQTT_CONFIG.clientId,
       clean: true,
       connectTimeout: 7000,
-      reconnectPeriod: 5000
+      reconnectPeriod: 5000,
+      ...getMqttCredentials()
     });
 
     mqttClient.on('connect', () => {
-      console.log('[MQTT] Connected successfully to HiveMQ!');
+      console.log('[MQTT] Connected to', connectUrl);
       if (statusBadge) statusBadge.className = 'status-badge connected';
       if (statusText) statusText.textContent = 'MQTT Đã kết nối';
-      showToast('Đã kết nối thành công tới MQTT Broker (HiveMQ)', 'success');
+      showToast('Đã kết nối MQTT Broker qua TLS (wss)', 'success');
 
       // Subscribe to telemetry topic
       mqttClient.subscribe(MQTT_CONFIG.topicTelemetry, (err) => {
@@ -166,14 +168,27 @@ function connectMQTT() {
       });
     });
 
-    mqttClient.on('message', (topic, message) => {
-      if (topic === MQTT_CONFIG.topicTelemetry) {
-        try {
-          const payload = JSON.parse(message.toString());
-          if (!isDemoMode) updateUIWithTelemetry(payload, true);
-        } catch (e) {
-          console.warn('[MQTT PARSE ERROR]:', e);
+    mqttClient.on('message', async (topic, message) => {
+      if (topic !== MQTT_CONFIG.topicTelemetry || isDemoMode) return;
+      const raw = message.toString();
+      try {
+        if (hasSigningKey()) {
+          // Có khóa: chỉ nhận bản tin có chữ ký đúng và còn mới.
+          const result = await verifyTelemetry(raw);
+          if (!result.ok) {
+            reportRejectedTelemetry(result.reason);
+            return;
+          }
+          result.data.verified = true;
+          updateUIWithTelemetry(result.data, true);
+        } else {
+          // Chưa có khóa: vẫn hiển thị để xem nhanh, nhưng đánh dấu chưa xác minh.
+          const payload = JSON.parse(raw);
+          payload.verified = false;
+          updateUIWithTelemetry(payload, true);
         }
+      } catch (e) {
+        console.warn('[MQTT PARSE ERROR]:', e);
       }
     });
 
@@ -197,17 +212,27 @@ function connectMQTT() {
   }
 }
 
-// Send Command via MQTT
-function publishCommand(cmdObj) {
-  const jsonStr = JSON.stringify(cmdObj);
-  if (mqttClient && mqttClient.connected) {
-    mqttClient.publish(MQTT_CONFIG.topicCmd, jsonStr);
-    console.log('[MQTT PUB CMD] ->', MQTT_CONFIG.topicCmd, jsonStr);
-    showToast(`Đã gửi lệnh [${cmdObj.cmd.toUpperCase()}] xuống Kệ ${cmdObj.id}!`, 'success');
-  } else {
+function reconnectMQTT() {
+  if (mqttClient) mqttClient.end(true);
+  connectMQTT();
+}
+
+// Send Command via MQTT: lệnh luôn được ký HMAC; ESP32 từ chối lệnh không có chữ ký hợp lệ.
+async function publishCommand(cmdObj) {
+  if (!hasSigningKey()) {
+    showToast('Cần nhập khóa bảo mật (nút Bảo mật) trước khi gửi lệnh.', 'error');
+    openSecurityModal();
+    return;
+  }
+  if (!mqttClient || !mqttClient.connected) {
     showToast('Chưa gửi được lệnh: dashboard chưa kết nối MQTT.', 'error');
     return;
   }
+  const signed = await signCommand(cmdObj);
+  mqttClient.publish(MQTT_CONFIG.topicCmd, signed);
+  console.log('[MQTT PUB CMD] ->', MQTT_CONFIG.topicCmd, cmdObj.cmd, cmdObj.id || '');
+  const target = cmdObj.id ? ` xuống Kệ ${cmdObj.id}` : '';
+  showToast(`Đã gửi lệnh [${cmdObj.cmd.toUpperCase()}]${target} (đã ký)`, 'success');
 }
 
 // ==============================================================================
@@ -346,14 +371,15 @@ function updateUIWithTelemetry(data, saveToHistory = true) {
   if (sourceNote) {
     const source = data.source || (String(data.device || '').includes('Giả lập') ? 'browser-demo' : 'unknown');
     if (source === 'hardware') lastHardwareTelemetryAt = Date.now();
+    const verifyLabel = data.verified ? ' • đã xác minh chữ ký' : ' • CHƯA XÁC MINH (chưa nhập khóa)';
     sourceNote.textContent = source === 'hardware'
-      ? `Dữ liệu cảm biến ESP32 • nhận lúc ${new Date().toLocaleTimeString('vi-VN')}`
+      ? `Dữ liệu cảm biến ESP32 • nhận lúc ${new Date().toLocaleTimeString('vi-VN')}${verifyLabel}`
       : source === 'browser-demo'
         ? 'ĐANG MÔ PHỎNG TRÊN TRÌNH DUYỆT — số liệu không đến từ cảm biến.'
         : source === 'browser-preview'
           ? 'Bản xem trước giao diện — chưa xác nhận số liệu từ ESP32.'
         : 'Dữ liệu mẫu/đang chờ ESP32 gửi telemetry; chưa xác nhận đây là số đo thật.';
-    sourceNote.style.color = source === 'hardware' ? '#10b981' : '#f59e0b';
+    sourceNote.style.color = (source === 'hardware' && data.verified) ? '#10b981' : '#f59e0b';
   }
 
   let totalQty = 0;
