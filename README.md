@@ -46,7 +46,7 @@ Toàn bộ hệ thống sử dụng kiến trúc **Bus Daisy-Chain song song**, 
 * **Bus I2C chung (10 màn hình trong mô phỏng Wokwi):**
   * `GPIO 21` (SDA) nối song song 10 chân SDA của 10 màn hình.
   * `GPIO 22` (SCL) nối song song 10 chân SCL của 10 màn hình.
-  * Wokwi cấu hình địa chỉ riêng `0x30` $\rightarrow$ `0x39`. Phần cứng thật cần 10 kênh TCA9548A (mỗi OLED SSD1306 thường ở `0x3C`); đặt `OLED_USE_TCA9548A 1` trong `include/secrets.h`.
+  * Wokwi cấu hình địa chỉ riêng `0x30` $\rightarrow$ `0x39`. Phần cứng thật cần 2 bộ TCA9548A (mỗi bộ 8 kênh: `0x70` cho K01–K08, `0x71` cho K09–K10; mỗi OLED SSD1306 thường ở `0x3C`); đặt `OLED_USE_TCA9548A 1` trong `include/secrets.h`.
 * **Clock SCK chung (10 module HX711):**
   * `GPIO 18` nối song song chân SCK của cả 10 module. Firmware chỉ chốt mẫu khi tất cả DT báo sẵn sàng; nếu có cảm biến chưa sẵn sàng, bỏ qua chu kỳ đó.
 * **10 Chân Dữ liệu DT riêng biệt:**
@@ -107,7 +107,7 @@ docker compose up -d
 * `docker compose --profile local-broker up -d mosquitto` chỉ khởi chạy broker local; các client vẫn mặc định dùng HiveMQ cho tới khi được cấu hình lại.
 
 ### Phần cứng OLED thực tế
-Wokwi dùng địa chỉ OLED tùy chỉnh `0x30`–`0x39`. Với 10 module SSD1306 vật lý cùng địa chỉ `0x3C`, nối SDA/SCL của ESP32 tới SDA/SCL của TCA9548A, cấp nguồn 3V3/GND chung, nối từng OLED vào kênh SDx/SCx riêng và đặt `OLED_USE_TCA9548A 1` trong `include/secrets.h`.
+Wokwi dùng địa chỉ OLED tùy chỉnh `0x30`–`0x39`. Với 10 module SSD1306 vật lý cùng địa chỉ `0x3C`, nối SDA/SCL của ESP32 tới SDA/SCL của hai bộ TCA9548A (bộ thứ nhất `0x70`, bộ thứ hai `0x71` với chân A0 nối VCC), cấp nguồn 3V3/GND chung, nối K01–K08 vào kênh 0–7 của bộ `0x70` và K09–K10 vào kênh 0–1 của bộ `0x71` và đặt `OLED_USE_TCA9548A 1` trong `include/secrets.h`.
 
 ### Cách 2: Chạy mô phỏng ESP32 trên Wokwi
 1. Mở dự án trong Visual Studio Code với extension **Wokwi Simulator**.

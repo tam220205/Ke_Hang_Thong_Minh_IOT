@@ -76,7 +76,7 @@ Dựa theo cấu hình chuẩn hóa định nghĩa trong [`src/main.cpp`](file:/
   [Wokwi: 10 OLED SSD1306 trên bus I2C với địa chỉ mô phỏng 0x30–0x39]
     - Đường nguồn: VCC nối chung 3.3V, GND nối chung GND
     - Đường tín hiệu: SDA nối chung GPIO 21, SCL nối chung GPIO 22
-    - Phần cứng thật: dùng TCA9548A, mỗi OLED địa chỉ 0x3C trên một kênh riêng; đặt OLED_USE_TCA9548A=1 trong secrets.h.
+    - Phần cứng thật: dùng 2 bộ TCA9548A (0x70: K01–K08, 0x71: K09–K10), mỗi OLED địa chỉ 0x3C trên một kênh riêng; đặt OLED_USE_TCA9548A=1 trong secrets.h.
 
   [Đường Xung Nhịp Chung cho Toàn bộ 10 Cảm biến HX711]
     - SCK của CẢ 10 MODULE HX711 ---> Nối chung vào chân GPIO 18 (Clock Bus Daisy-Chain)
@@ -105,7 +105,7 @@ Dựa theo cấu hình chuẩn hóa định nghĩa trong [`src/main.cpp`](file:/
 +-----------------------------------------------------------------------------------+
 ```
 
-*Các địa chỉ 0x30–0x39 trong bảng chỉ là cấu hình mô phỏng Wokwi. Mạch vật lý dùng TCA9548A; chọn kênh 0–9 cho từng màn hình cùng địa chỉ 0x3C.*
+*Các địa chỉ 0x30–0x39 trong bảng chỉ là cấu hình mô phỏng Wokwi. Mạch vật lý dùng 2 bộ TCA9548A (mỗi bộ 8 kênh): K01–K08 ở kênh 0–7 của bộ 0x70, K09–K10 ở kênh 0–1 của bộ 0x71; mọi màn hình cùng địa chỉ 0x3C.*
 
 ---
 

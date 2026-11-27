@@ -72,6 +72,15 @@ function normalizeShelfId(id) {
   return id;
 }
 
+// Telemetry đi qua broker công cộng không xác thực: ai cũng publish được, nên mọi chuỗi nhận
+// từ MQTT phải escape trước khi chèn bằng innerHTML.
+const VALID_SHELF_ID = /^K(0[1-9]|10)$/;
+function escapeHtml(value) {
+  return String(value ?? '').replace(/[&<>"']/g, ch => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+  })[ch]);
+}
+
 // ==============================================================================
 // 3. INITIALIZATION & DOM READY
 // ==============================================================================
@@ -233,8 +242,8 @@ function renderShelfCards() {
       <div class="shelf-header">
         <div class="shelf-title-wrap">
           <span class="shelf-badge">${shelf.id}</span>
-          <span class="shelf-cat-badge">${shelf.category || 'Tạp hóa'}</span>
-          <h3 class="shelf-name" id="name-${shelf.id}">${shelf.name}</h3>
+          <span class="shelf-cat-badge">${escapeHtml(shelf.category || 'Tạp hóa')}</span>
+          <h3 class="shelf-name" id="name-${shelf.id}">${escapeHtml(shelf.name)}</h3>
         </div>
         <span class="stock-pill ${shelf.low_stock ? 'low-stock' : 'in-stock'}" id="pill-${shelf.id}">
           ${shelf.low_stock ? 'THIẾU HÀNG!' : 'ĐỦ HÀNG'}
@@ -352,7 +361,9 @@ function updateUIWithTelemetry(data, saveToHistory = true) {
   let alertShelves = 0;
 
   data.shelves.forEach(rawShelf => {
-    const id = normalizeShelfId(rawShelf.id);
+    const id = normalizeShelfId(String(rawShelf.id || ''));
+    // Bỏ qua mã kệ lạ: mã kệ được dùng làm id phần tử và trong thuộc tính onclick
+    if (!VALID_SHELF_ID.test(id)) return;
     const existing = shelfState[id] || {};
 
     const qty = rawShelf.qty !== undefined ? Number(rawShelf.qty) : (existing.qty || 0);
@@ -472,7 +483,7 @@ function generateAnalyticsInsights(shelves, alertCount) {
   const lowList = shelves.filter(s => s.low_stock);
   const adviceItems = lowList.map(s => {
     const deficit = Math.max(s.min - s.qty, 1);
-    return `<li><strong>Kệ ${s.id} [${s.category}] - ${s.name}</strong>: Hiện còn <strong>${s.qty} món</strong> (Dưới ngưỡng ${s.min}). 👉 Cần nhập thêm tối thiểu <strong>+${deficit} món</strong>.</li>`;
+    return `<li><strong>Kệ ${s.id} [${escapeHtml(s.category)}] - ${escapeHtml(s.name)}</strong>: Hiện còn <strong>${s.qty} món</strong> (Dưới ngưỡng ${s.min}). 👉 Cần nhập thêm tối thiểu <strong>+${deficit} món</strong>.</li>`;
   }).join('');
 
   analysisEl.innerHTML = `
@@ -585,7 +596,7 @@ function renderControlButtons() {
   if (tareContainer) {
     tareContainer.innerHTML = shelves.map(s => `
       <button class="btn-action" onclick="sendTareCmd('${s.id}')" style="font-size: 13px; padding: 7px 12px;">
-        <i class="fa-solid fa-rotate-left"></i> Tare ${s.id} (${s.name})
+        <i class="fa-solid fa-rotate-left"></i> Tare ${s.id} (${escapeHtml(s.name)})
       </button>
     `).join('');
   }
@@ -605,7 +616,7 @@ function populateModalShelfOptions() {
 
   const shelves = Object.values(shelfState);
   select.innerHTML = shelves.map(s => `
-    <option value="${s.id}">${s.id}: ${s.name} (${s.unit}g, min=${s.min})</option>
+    <option value="${s.id}">${s.id}: ${escapeHtml(s.name)} (${escapeHtml(s.unit)}g, min=${escapeHtml(s.min)})</option>
   `).join('');
 }
 
@@ -798,13 +809,13 @@ function renderHistoryTable() {
 
   tbody.innerHTML = filtered.slice(0, 35).map(row => `
     <tr>
-      <td style="font-family: var(--font-mono); color: var(--text-dim);">${row.date} ${row.time}</td>
-      <td><span class="shelf-badge">${row.id}</span></td>
-      <td><strong>${row.name}</strong> <small style="color:var(--text-dim)">(${row.category})</small></td>
-      <td style="font-family: var(--font-mono);">${row.weight}g</td>
-      <td style="font-family: var(--font-mono);">${row.unit}g</td>
-      <td style="font-family: var(--font-mono); font-weight: bold;">${row.qty}</td>
-      <td style="font-family: var(--font-mono);">${row.min}</td>
+      <td style="font-family: var(--font-mono); color: var(--text-dim);">${escapeHtml(row.date)} ${escapeHtml(row.time)}</td>
+      <td><span class="shelf-badge">${escapeHtml(row.id)}</span></td>
+      <td><strong>${escapeHtml(row.name)}</strong> <small style="color:var(--text-dim)">(${escapeHtml(row.category)})</small></td>
+      <td style="font-family: var(--font-mono);">${escapeHtml(row.weight)}g</td>
+      <td style="font-family: var(--font-mono);">${escapeHtml(row.unit)}g</td>
+      <td style="font-family: var(--font-mono); font-weight: bold;">${escapeHtml(row.qty)}</td>
+      <td style="font-family: var(--font-mono);">${escapeHtml(row.min)}</td>
       <td>
         ${row.low_stock 
           ? '<span class="stock-pill low-stock" style="font-size: 10px; padding: 2px 8px;">THIẾU HÀNG</span>' 
@@ -926,10 +937,12 @@ function showToast(message, type = 'info') {
     info: 'fa-circle-info'
   };
 
-  toast.innerHTML = `
-    <i class="fa-solid ${iconMap[type] || 'fa-bell'}"></i>
-    <span>${message}</span>
-  `;
+  // Thông báo có thể chứa tên sản phẩm nhận từ MQTT, nên gán bằng textContent
+  const icon = document.createElement('i');
+  icon.className = `fa-solid ${iconMap[type] || 'fa-bell'}`;
+  const text = document.createElement('span');
+  text.textContent = message;
+  toast.append(icon, text);
 
   container.appendChild(toast);
 

@@ -29,8 +29,10 @@ Adafruit_SSD1306* oleds[10];
 #endif
 
 #if OLED_USE_TCA9548A
+// Mỗi TCA9548A chỉ có 8 kênh, nên 10 OLED cần 2 bộ: 0x70 (K01-K08) và 0x71 (K09-K10, chân A0 = VCC).
 const uint8_t OLED_I2C_ADDR = 0x3C;
-const uint8_t OLED_MUX_ADDR = 0x70;
+const uint8_t OLED_MUX_ADDRS[2] = {0x70, 0x71};
+const uint8_t OLED_CHANNELS_PER_MUX = 8;
 #else
 const uint8_t OLED_ADDRS[10] = {
   0x30, 0x31, 0x32, 0x33, 0x34,
@@ -49,6 +51,11 @@ const int   mqtt_port   = 1883;
 
 const char* TOPIC_TELEMETRY = "nhom22/smartshelf/telemetry"; // ESP32 -> Broker -> Web/Node-RED
 const char* TOPIC_CMD       = "nhom22/smartshelf/cmd";       // Web/Node-RED -> ESP32
+
+// Bản tin 10 kệ dài khoảng 1.040-1.110 byte (hơn nữa nếu đổi tên sản phẩm). PubSubClient chỉ gửi được
+// khi 5 + 2 + độ dài topic + độ dài nội dung <= bộ đệm, nên bộ đệm 1024 byte (tối đa 990 byte nội dung) không đủ.
+const uint16_t MQTT_BUFFER_SIZE = 2048;
+const size_t   JSON_BUFFER_SIZE = 1536;
 
 WiFiClient espClient;
 PubSubClient mqttClient(espClient);
@@ -215,9 +222,17 @@ bool readAllScales() {
 
 bool selectOLEDChannel(uint8_t channel) {
 #if OLED_USE_TCA9548A
-  Wire.beginTransmission(OLED_MUX_ADDR);
-  Wire.write(1u << channel);
-  return Wire.endTransmission() == 0;
+  if (channel >= 2 * OLED_CHANNELS_PER_MUX) return false;
+  const uint8_t muxIndex = channel / OLED_CHANNELS_PER_MUX;
+  const uint8_t muxChannel = channel % OLED_CHANNELS_PER_MUX;
+  bool ok = true;
+  // Tắt bộ còn lại trước, để không có hai OLED cùng địa chỉ 0x3C trên bus cùng lúc.
+  for (uint8_t m = 0; m < 2; m++) {
+    Wire.beginTransmission(OLED_MUX_ADDRS[m]);
+    Wire.write(m == muxIndex ? (uint8_t)(1u << muxChannel) : (uint8_t)0);
+    if (Wire.endTransmission() != 0 && m == muxIndex) ok = false;
+  }
+  return ok;
 #else
   (void)channel;
   return true;
@@ -304,12 +319,22 @@ void publishTelemetry() {
   }
   doc["total_alerts"] = totalAlert;
 
-  char buffer[1024];
-  size_t n = serializeJson(doc, buffer);
+  // Kiểm tra độ dài trước khi ghi: bản tin bị cắt ngắn sẽ là JSON hỏng.
+  size_t need = measureJson(doc);
+  if (need >= JSON_BUFFER_SIZE) {
+    Serial.printf("[MQTT PUB] LOI: ban tin %u byte vuot bo dem JSON %u byte\n",
+                  (unsigned)need, (unsigned)JSON_BUFFER_SIZE);
+    return;
+  }
+  static char buffer[JSON_BUFFER_SIZE];
+  size_t n = serializeJson(doc, buffer, sizeof(buffer));
 
   bool success = mqttClient.publish(TOPIC_TELEMETRY, buffer);
   if (success) {
     Serial.printf("[MQTT PUB] -> %s (10 kệ: %d bytes)\n", TOPIC_TELEMETRY, (int)n);
+  } else {
+    Serial.printf("[MQTT PUB] LOI: gui that bai (%d bytes, bo dem %u)\n",
+                  (int)n, (unsigned)mqttClient.getBufferSize());
   }
 }
 
@@ -520,7 +545,9 @@ void setup() {
   // 7. Cấu hình MQTT
   mqttClient.setServer(mqtt_server, mqtt_port);
   mqttClient.setCallback(mqttCallback);
-  mqttClient.setBufferSize(1024);
+  if (!mqttClient.setBufferSize(MQTT_BUFFER_SIZE)) {
+    Serial.printf("[MQTT] LOI: khong cap phat duoc bo dem %u byte\n", (unsigned)MQTT_BUFFER_SIZE);
+  }
   reconnectMQTT();
 
   Serial.println("=== HỆ THỐNG 10 KỆ HÀNG TẠP HÓA (10 OLED ESL) ĐÃ SẴN SÀNG ===");
