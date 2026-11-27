@@ -3,146 +3,99 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="description" content="Hệ thống giám sát và quản lý Kệ hàng thông minh IoT Smart Shelf - Nhóm 22">
-  <title>Smart Grocery Store IoT Dashboard | 10 Kệ Hàng - Nhóm 22</title>
-  
-  <!-- Google Fonts: Outfit & JetBrains Mono -->
+  <meta name="description" content="Bảng điều khiển vận hành 10 kệ hàng thông minh IoT Smart Shelf - Nhóm 22">
+  <title>Smart Grocery Store 4.0 — Quản lý 10 Kệ Hàng</title>
+
+  <!-- Google Fonts: Be Vietnam Pro -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
-  
+  <link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&display=swap" rel="stylesheet">
+
   <!-- FontAwesome Icons -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-  
-  <!-- Chart.js CDN -->
+
+  <!-- Chart.js & MQTT.js CDN -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-  
-  <!-- MQTT.js CDN -->
   <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
-  
+
   <!-- Stylesheet -->
-  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="style.css?v=20261127c">
 </head>
 <body>
-  <!-- Background Glow Effects -->
-  <div class="ambient-glow glow-1"></div>
-  <div class="ambient-glow glow-2"></div>
-  <div class="ambient-glow glow-3"></div>
-
   <div class="app-container">
-    <!-- Top Navigation Bar -->
+    <!-- Top Header (~56px) -->
     <header class="app-header">
-      <div class="brand">
-        <div class="brand-logo">
-          <i class="fa-solid fa-layer-group"></i>
-        </div>
-        <div class="brand-info">
-          <h1>SMART GROCERY STORE 4.0</h1>
-          <p class="subtitle">Hệ thống Giám sát & Quản trị 10 Kệ Hàng Tạp Hóa Thông Minh (PoC 50 SP) • Nhóm 22</p>
-        </div>
+      <div class="brand-info">
+        <h1>Smart Grocery Store 4.0</h1>
       </div>
 
       <div class="header-actions">
-        <!-- Connection Status Badge -->
         <div id="mqtt-status-badge" class="status-badge connecting">
           <span class="status-dot"></span>
           <span id="mqtt-status-text">Đang kết nối MQTT...</span>
         </div>
 
-        <!-- Demo Mode Toggle -->
-        <button id="btn-toggle-demo" class="btn-secondary" title="Bật/Tắt chế độ mô phỏng số liệu khi chưa cắm ESP32">
-          <i class="fa-solid fa-wand-magic-sparkles"></i>
-          <span id="demo-btn-text">Bật Giả lập (Demo)</span>
+        <button id="btn-toggle-demo" class="btn-secondary" title="Bật/tắt chế độ giả lập số liệu khi chưa kết nối ESP32">
+          <span id="demo-btn-text">Giả lập</span>
         </button>
 
-        <!-- Sync Telemetry Button -->
         <button id="btn-sync-telemetry" class="btn-primary" title="Gửi lệnh yêu cầu ESP32 cập nhật số liệu ngay">
-          <i class="fa-solid fa-arrows-rotate"></i>
-          <span>Đồng bộ ngay</span>
+          <span>Đồng bộ</span>
         </button>
       </div>
     </header>
 
-    <!-- Navigation Tabs -->
+    <!-- Underline Navigation Tabs -->
     <nav class="nav-tabs">
-      <button class="tab-btn active" data-tab="tab-overview" id="nav-btn-overview">
-        <i class="fa-solid fa-chart-pie"></i> Tổng quan & Kệ hàng
-      </button>
-      <button class="tab-btn" data-tab="tab-charts" id="nav-btn-charts">
-        <i class="fa-solid fa-chart-line"></i> Biểu đồ Thời gian thực
-      </button>
-      <button class="tab-btn" data-tab="tab-history" id="nav-btn-history">
-        <i class="fa-solid fa-database"></i> Quản lý Dữ liệu Lịch sử
-      </button>
-      <button class="tab-btn" data-tab="tab-control" id="nav-btn-control">
-        <i class="fa-solid fa-sliders"></i> Trung tâm Điều khiển
-      </button>
+      <button class="tab-btn active" data-tab="tab-overview" id="nav-btn-overview">Tổng quan &amp; Kệ hàng</button>
+      <button class="tab-btn" data-tab="tab-charts" id="nav-btn-charts">Biểu đồ thời gian thực</button>
+      <button class="tab-btn" data-tab="tab-history" id="nav-btn-history">Nhật ký tồn kho</button>
+      <button class="tab-btn" data-tab="tab-control" id="nav-btn-control">Điều khiển &amp; Tare</button>
     </nav>
 
-    <!-- Notification Toast Container -->
+    <!-- Toast Notification Container -->
     <div id="toast-container" class="toast-container"></div>
 
-    <!-- MAIN CONTENT SECTIONS -->
+    <!-- MAIN CONTENT -->
     <main class="main-content">
-      
+
       <!-- TAB 1: OVERVIEW & SHELVES -->
       <section id="tab-overview" class="tab-pane active">
-        <p id="telemetry-source-note" class="subtitle">Đang chờ dữ liệu telemetry từ ESP32. Số liệu ban đầu là mẫu giao diện.</p>
-        <!-- Analytics KPI Cards -->
+        <p id="telemetry-source-note" class="source-banner">Đang chờ dữ liệu telemetry từ ESP32. Số liệu ban đầu là dữ liệu mẫu.</p>
+
+        <!-- Seamless 4-Column KPI Strip -->
         <div class="kpi-grid">
           <div class="kpi-card" id="kpi-total-items">
-            <div class="kpi-icon icon-blue">
-              <i class="fa-solid fa-boxes-stacked"></i>
-            </div>
-            <div class="kpi-body">
-              <span class="kpi-title">Tổng sản phẩm tồn</span>
-              <div class="kpi-value"><span id="metric-total-qty">0</span> <small>món</small></div>
-              <span class="kpi-desc">Trên cả 10 kệ hàng</span>
-            </div>
+            <span class="kpi-title">Tổng tồn kho</span>
+            <div class="kpi-value"><span id="metric-total-qty">0</span> <small>món</small></div>
+            <span class="kpi-desc">Trên 10 kệ hàng</span>
           </div>
 
           <div class="kpi-card" id="kpi-total-weight">
-            <div class="kpi-icon icon-purple">
-              <i class="fa-solid fa-weight-hanging"></i>
-            </div>
-            <div class="kpi-body">
-              <span class="kpi-title">Tổng tải trọng</span>
-              <div class="kpi-value"><span id="metric-total-weight">0</span> <small>g</small></div>
-              <span class="kpi-desc">Khối lượng hàng thực tế</span>
-            </div>
+            <span class="kpi-title">Tổng khối lượng</span>
+            <div class="kpi-value"><span id="metric-total-weight">0</span> <small>g</small></div>
+            <span class="kpi-desc">Tải trọng đo thực tế</span>
           </div>
 
           <div class="kpi-card" id="kpi-alerts">
-            <div class="kpi-icon icon-red">
-              <i class="fa-solid fa-triangle-exclamation"></i>
-            </div>
-            <div class="kpi-body">
-              <span class="kpi-title">Cần nhập hàng</span>
-              <div class="kpi-value alert-text"><span id="metric-total-alerts">0</span> <small>kệ</small></div>
-              <span class="kpi-desc" id="metric-alert-status">Đang đủ hàng</span>
-            </div>
+            <span class="kpi-title">Cần nhập hàng</span>
+            <div class="kpi-value"><span id="metric-total-alerts">0</span> <small>kệ</small></div>
+            <span class="kpi-desc" id="metric-alert-status">Kho hàng đầy đủ</span>
           </div>
 
           <div class="kpi-card" id="kpi-device-uptime">
-            <div class="kpi-icon icon-green">
-              <i class="fa-solid fa-microchip"></i>
-            </div>
-            <div class="kpi-body">
-              <span class="kpi-title">Thiết bị ESP32</span>
-              <div class="kpi-value highlight-text"><span id="metric-uptime">0</span> <small>s</small></div>
-              <span class="kpi-desc" id="metric-device-name">ESP32_SmartShelf</span>
-            </div>
+            <span class="kpi-title">Thiết bị ESP32</span>
+            <div class="kpi-value"><span id="metric-uptime">0</span> <small>s</small></div>
+            <span class="kpi-desc" id="metric-device-name">ESP32_SmartShelf</span>
           </div>
         </div>
 
-        <!-- 10 Shelves Representation Cards & Categories Filter -->
+        <!-- Shelves Filter Toolbar -->
         <div class="shelves-toolbar">
-          <h2 class="section-heading" style="margin-bottom: 0;">
-            <i class="fa-solid fa-shop"></i> Danh mục 10 Kệ hàng Tạp hóa (PoC 50 SP)
-          </h2>
+          <h2 class="section-heading">Danh sách 10 kệ hàng</h2>
           <div class="category-filters" id="category-filters">
             <button class="cat-pill active" onclick="filterCategory('ALL')">Tất cả (10)</button>
-            <button class="cat-pill" onclick="filterCategory('ALERT')">⚠️ Cần nhập</button>
+            <button class="cat-pill" onclick="filterCategory('ALERT')">Cần nhập</button>
             <button class="cat-pill" onclick="filterCategory('Đồ uống')">Đồ uống</button>
             <button class="cat-pill" onclick="filterCategory('Ăn liền')">Ăn liền</button>
             <button class="cat-pill" onclick="filterCategory('Gia vị')">Gia vị</button>
@@ -153,18 +106,18 @@
           </div>
         </div>
 
+        <!-- Dense Shelves List -->
         <div class="shelves-grid" id="shelves-container">
-          <!-- Dynamically populated 10 shelves by app.js -->
+          <!-- Populated dynamically by app.js -->
         </div>
 
-        <!-- AI Analysis & Advice Box -->
+        <!-- Restock Insights -->
         <div class="analysis-box">
           <div class="analysis-header">
-            <i class="fa-solid fa-brain"></i>
-            <h3>Phân tích & Khuyến nghị Nhập Kho Tự Động (Data Analysis)</h3>
+            <h3>Gợi ý nhập kho</h3>
           </div>
           <div class="analysis-content" id="analysis-text">
-            Đang tổng hợp dữ liệu thời gian thực từ ESP32...
+            Đang tổng hợp dữ liệu từ ESP32...
           </div>
         </div>
       </section>
@@ -174,16 +127,12 @@
         <div class="chart-panel">
           <div class="chart-header">
             <div>
-              <h2>Biến thiên Khối lượng & Số lượng Thời gian thực</h2>
-              <p class="subtitle">Dữ liệu được cập nhật tự động mỗi khi ESP32 truyền gói tin qua MQTT</p>
+              <h2>Biến thiên khối lượng &amp; tồn kho</h2>
+              <p class="subtitle">Cập nhật tự động mỗi khi ESP32 gửi bản tin MQTT</p>
             </div>
             <div class="chart-controls">
-              <button id="btn-chart-weight" class="chart-toggle-btn active">
-                <i class="fa-solid fa-weight-scale"></i> Khối lượng (g)
-              </button>
-              <button id="btn-chart-qty" class="chart-toggle-btn">
-                <i class="fa-solid fa-boxes-stacked"></i> Số lượng (món)
-              </button>
+              <button id="btn-chart-weight" class="chart-toggle-btn active">Khối lượng (g)</button>
+              <button id="btn-chart-qty" class="chart-toggle-btn">Số lượng (món)</button>
             </div>
           </div>
           <div class="chart-canvas-container">
@@ -192,28 +141,23 @@
         </div>
       </section>
 
-      <!-- TAB 3: DATA MANAGEMENT & LOGS -->
+      <!-- TAB 3: HISTORY LOGS -->
       <section id="tab-history" class="tab-pane">
         <div class="history-panel">
           <div class="history-header">
             <div>
-              <h2>Quản lý Nhật ký Dữ liệu Kho (Data Management)</h2>
-              <p class="subtitle">Truy vấn, lọc và lưu trữ dữ liệu lịch sử các lần đo từ ESP32</p>
+              <h2>Nhật ký dữ liệu tồn kho</h2>
+              <p class="subtitle">Lưu tối đa 150 bản ghi gần nhất trên trình duyệt</p>
             </div>
             <div class="history-actions">
-              <button id="btn-export-csv" class="btn-success">
-                <i class="fa-solid fa-file-csv"></i> Xuất file Excel / CSV
-              </button>
-              <button id="btn-clear-history" class="btn-danger">
-                <i class="fa-solid fa-trash-can"></i> Xóa dữ liệu
-              </button>
+              <button id="btn-export-csv" class="btn-secondary">Xuất CSV</button>
+              <button id="btn-clear-history" class="btn-danger-outline">Xóa nhật ký</button>
             </div>
           </div>
 
-          <!-- Filter Toolbar -->
           <div class="filter-toolbar">
             <div class="filter-item">
-              <label for="filter-shelf"><i class="fa-solid fa-filter"></i> Lọc theo Kệ:</label>
+              <label for="filter-shelf">Kệ hàng</label>
               <select id="filter-shelf" class="custom-select">
                 <option value="ALL">Tất cả 10 kệ</option>
                 <option value="K01">K01: Coca-Cola 330ml</option>
@@ -230,21 +174,20 @@
             </div>
 
             <div class="filter-item">
-              <label for="filter-status"><i class="fa-solid fa-bell"></i> Trạng thái:</label>
+              <label for="filter-status">Trạng thái</label>
               <select id="filter-status" class="custom-select">
                 <option value="ALL">Tất cả</option>
-                <option value="ALERT">Chỉ cảnh báo (Thiếu hàng)</option>
+                <option value="ALERT">Cần nhập (Thiếu hàng)</option>
                 <option value="NORMAL">Đủ hàng</option>
               </select>
             </div>
 
             <div class="filter-item search-item">
-              <label for="filter-search"><i class="fa-solid fa-magnifying-glass"></i> Tìm kiếm:</label>
+              <label for="filter-search">Tìm sản phẩm</label>
               <input type="text" id="filter-search" class="custom-input" placeholder="Nhập tên sản phẩm...">
             </div>
           </div>
 
-          <!-- Table Container -->
           <div class="table-responsive">
             <table class="data-table" id="history-table">
               <thead>
@@ -255,7 +198,7 @@
                   <th>Khối lượng (g)</th>
                   <th>Đơn vị (g)</th>
                   <th>Số lượng</th>
-                  <th>Ngưỡng</th>
+                  <th>Ngưỡng báo</th>
                   <th>Tình trạng</th>
                 </tr>
               </thead>
@@ -272,55 +215,49 @@
       <!-- TAB 4: CONTROL CENTER -->
       <section id="tab-control" class="tab-pane">
         <div class="control-panel">
-          <h2>Trung tâm Điều phối & Hiệu chuẩn Thiết bị (Control GUI)</h2>
-          <p class="subtitle">Gửi các lệnh điều khiển 2 chiều xuống phần cứng ESP32 qua topic: <code>nhom22/smartshelf/cmd</code></p>
+          <h2>Điều khiển &amp; hiệu chuẩn thiết bị</h2>
+          <p class="subtitle">Gửi lệnh trực tiếp xuống ESP32 qua topic <code>nhom22/smartshelf/cmd</code></p>
 
           <div class="control-cards-grid">
-            <!-- Card Tare -->
             <div class="action-card">
               <div class="action-card-header">
-                <i class="fa-solid fa-bullseye icon-blue"></i>
-                <h3>Hiệu chuẩn Tare (Về 0g)</h3>
+                <h3>Hiệu chuẩn Tare (Về 0 g)</h3>
               </div>
-              <p>Hiệu chuẩn đưa trọng lượng cân về 0g khi thay thế khay/hộp chứa sản phẩm trên mặt kệ.</p>
-              <div class="action-btn-row" id="ctrl-tare-container" style="display: flex; flex-wrap: wrap; gap: 8px;">
-                <!-- Dynamically populated 10 Tare buttons by app.js -->
+              <p>Đặt lại mốc 0 g cho từng kệ khi thay khay hoặc hiệu chuẩn lại cảm biến.</p>
+              <div class="action-btn-row" id="ctrl-tare-container">
+                <!-- Populated by app.js -->
               </div>
             </div>
 
-            <!-- Card Quick Config -->
             <div class="action-card">
               <div class="action-card-header">
-                <i class="fa-solid fa-wrench icon-purple"></i>
-                <h3>Cấu hình nhanh thông số Kệ (10 Kệ)</h3>
+                <h3>Cấu hình thông số kệ</h3>
               </div>
-              <p>Chọn kệ để cài đặt lại Tên món hàng, Trọng lượng 1 đơn vị (gram) và Ngưỡng báo động.</p>
-              <div class="action-btn-row" id="ctrl-config-container" style="display: flex; flex-wrap: wrap; gap: 8px;">
-                <!-- Dynamically populated 10 Config buttons by app.js -->
+              <p>Cập nhật tên sản phẩm, khối lượng 1 đơn vị (g) và ngưỡng báo tồn kho.</p>
+              <div class="action-btn-row" id="ctrl-config-container">
+                <!-- Populated by app.js -->
               </div>
             </div>
 
-            <!-- Card MQTT Topic Monitoring -->
             <div class="action-card full-width">
               <div class="action-card-header">
-                <i class="fa-solid fa-network-wired icon-green"></i>
-                <h3>Thông số Kết nối MQTT Gateway</h3>
+                <h3>Thông số kết nối MQTT</h3>
               </div>
               <div class="mqtt-info-grid">
                 <div class="info-item">
-                  <span class="label">Broker Máy chủ:</span>
-                  <span class="val">broker.hivemq.com (Port 8884 SSL / 1883 TCP)</span>
+                  <span class="label">Broker</span>
+                  <span class="val">broker.hivemq.com (WSS 8884 / TCP 1883)</span>
                 </div>
                 <div class="info-item">
-                  <span class="label">Telemetry Topic (Uplink):</span>
-                  <span class="val highlight">nhom22/smartshelf/telemetry</span>
+                  <span class="label">Topic Telemetry (Uplink)</span>
+                  <span class="val">nhom22/smartshelf/telemetry</span>
                 </div>
                 <div class="info-item">
-                  <span class="label">Command Topic (Downlink):</span>
-                  <span class="val highlight">nhom22/smartshelf/cmd</span>
+                  <span class="label">Topic Command (Downlink)</span>
+                  <span class="val">nhom22/smartshelf/cmd</span>
                 </div>
                 <div class="info-item">
-                  <span class="label">Client ID trình duyệt:</span>
+                  <span class="label">Client ID</span>
                   <span class="val" id="val-client-id">SmartShelf_Web_Client</span>
                 </div>
               </div>
@@ -333,55 +270,50 @@
 
     <!-- FOOTER -->
     <footer class="app-footer">
-      <p>© 2026 Nhóm 22 - Đồ án Hệ thống Giám sát & Quản trị Kệ Hàng Thông Minh IoT</p>
-      <p class="tech-stack">Công nghệ: ESP32 • MQTT (HiveMQ Public — demo) • Node-RED • Telegram Bot • Web App (Chart.js / Vanilla JS)</p>
+      <p>Smart Grocery Store 4.0 • Nhóm 22 — Hệ thống Giám sát 10 Kệ Hàng Tạp Hóa (PoC 50 SP)</p>
+      <p class="tech-stack">ESP32 • MQTT (HiveMQ) • Node-RED • Telegram Bot • Chart.js</p>
     </footer>
   </div>
 
-  <!-- MODAL: CẤU HÌNH THÔNG SỐ KỆ HÀNG -->
+  <!-- MODAL: CẤU HÌNH KỆ -->
   <div id="config-modal" class="modal-overlay">
     <div class="modal-card">
       <div class="modal-header">
-        <h3 id="modal-title">Cài đặt thông số Kệ 1</h3>
-        <button class="modal-close" onclick="closeConfigModal()">&times;</button>
+        <h3 id="modal-title">Cài đặt thông số kệ</h3>
+        <button class="modal-close" onclick="closeConfigModal()" aria-label="Đóng">&times;</button>
       </div>
       <form id="form-shelf-config" onsubmit="handleSaveConfig(event)">
         <div class="form-group">
-          <label for="modal-shelf-select">Chọn kệ hàng:</label>
-          <select id="modal-shelf-select" class="custom-select" onchange="onModalShelfSelectChange(this.value)">
-            <!-- Options populated by app.js -->
-          </select>
+          <label for="modal-shelf-select">Chọn kệ hàng</label>
+          <select id="modal-shelf-select" class="custom-select" onchange="onModalShelfSelectChange(this.value)"></select>
         </div>
         <input type="hidden" id="modal-shelf-id" value="K01">
-        
+
         <div class="form-group">
-          <label for="modal-shelf-name">Tên sản phẩm:</label>
-          <input type="text" id="modal-shelf-name" class="custom-input" required placeholder="Ví dụ: Coca, Pepsi, Mì tôm...">
+          <label for="modal-shelf-name">Tên sản phẩm</label>
+          <input type="text" id="modal-shelf-name" class="custom-input" required placeholder="Ví dụ: Coca-Cola 330ml">
         </div>
 
         <div class="form-row">
           <div class="form-group">
-            <label for="modal-unit-weight">Trọng lượng 1 đơn vị (gram):</label>
-            <input type="number" id="modal-unit-weight" class="custom-input" required min="1" step="0.5" placeholder="Ví dụ: 330">
+            <label for="modal-unit-weight">Khối lượng 1 đơn vị (g)</label>
+            <input type="number" id="modal-unit-weight" class="custom-input" required min="1" step="0.5" placeholder="330">
           </div>
 
           <div class="form-group">
-            <label for="modal-min-qty">Ngưỡng cảnh báo thiếu (món):</label>
-            <input type="number" id="modal-min-qty" class="custom-input" required min="0" step="1" placeholder="Ví dụ: 3">
+            <label for="modal-min-qty">Ngưỡng báo (món)</label>
+            <input type="number" id="modal-min-qty" class="custom-input" required min="0" step="1" placeholder="3">
           </div>
         </div>
 
         <div class="modal-footer">
-          <button type="button" class="btn-secondary" onclick="closeConfigModal()">Hủy bỏ</button>
-          <button type="submit" class="btn-primary">
-            <i class="fa-solid fa-cloud-arrow-down"></i> Lưu & Gửi xuống ESP32
-          </button>
+          <button type="button" class="btn-secondary" onclick="closeConfigModal()">Hủy</button>
+          <button type="submit" class="btn-primary">Lưu &amp; Gửi xuống ESP32</button>
         </div>
       </form>
     </div>
   </div>
 
-  <!-- Application Logic Script -->
   <script src="app.js"></script>
 </body>
 </html>
