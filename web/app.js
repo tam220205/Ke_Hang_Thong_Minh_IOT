@@ -483,7 +483,7 @@ function generateAnalyticsInsights(shelves, alertCount) {
   const lowList = shelves.filter(s => s.low_stock);
   const adviceItems = lowList.map(s => {
     const deficit = Math.max(s.min - s.qty, 1);
-    return `<li><strong>Kệ ${s.id} [${escapeHtml(s.category)}] - ${escapeHtml(s.name)}</strong>: Hiện còn <strong>${s.qty} món</strong> (Dưới ngưỡng ${s.min}). 👉 Cần nhập thêm tối thiểu <strong>+${deficit} món</strong>.</li>`;
+    return `<li><strong>Kệ ${s.id} [${escapeHtml(s.category)}] - ${escapeHtml(s.name)}</strong>: Hiện còn <strong>${s.qty} món</strong> (ngưỡng báo ${s.min}, cảnh báo khi không vượt quá ngưỡng). 👉 Cần nhập thêm tối thiểu <strong>+${deficit} món</strong>.</li>`;
   }).join('');
 
   analysisEl.innerHTML = `

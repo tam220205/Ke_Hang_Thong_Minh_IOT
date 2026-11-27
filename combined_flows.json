@@ -597,7 +597,7 @@
                 "t": "set",
                 "p": "topic",
                 "pt": "msg",
-                "to": "Kệ 2 - BanhOishi",
+                "to": "Kệ 2 - MiHaoHao",
                 "tot": "str"
             }
         ],
@@ -620,7 +620,7 @@
                 "t": "set",
                 "p": "topic",
                 "pt": "msg",
-                "to": "Kệ 3 - MiHaoHao",
+                "to": "Kệ 3 - BanhOishi",
                 "tot": "str"
             }
         ],
@@ -738,7 +738,7 @@
         "type": "function",
         "z": "tab_smart_shelf",
         "g": "group_dashboard",
-        "name": "📏 Gauge K2 (BanhOishi)",
+        "name": "📏 Gauge K2 (MiHaoHao)",
         "func": "let s = msg.payload;\nnode.status({\n    fill: s.low_stock ? 'red' : 'green',\n    shape: 'ring',\n    text: `${s.name}: ${s.qty} món (${s.weight}g)`\n});\nmsg.payload = s.qty;\nmsg.topic = 'K2 - ' + s.name;\nreturn msg;",
         "outputs": 1,
         "timeout": 0,
@@ -759,7 +759,7 @@
         "type": "function",
         "z": "tab_smart_shelf",
         "g": "group_dashboard",
-        "name": "📏 Gauge K3 (MiHaoHao)",
+        "name": "📏 Gauge K3 (BanhOishi)",
         "func": "let s = msg.payload;\nnode.status({\n    fill: s.low_stock ? 'red' : 'green',\n    shape: 'ring',\n    text: `${s.name}: ${s.qty} món (${s.weight}g)`\n});\nmsg.payload = s.qty;\nmsg.topic = 'K3 - ' + s.name;\nreturn msg;",
         "outputs": 1,
         "timeout": 0,
@@ -1262,7 +1262,7 @@
         "type": "inject",
         "z": "tab_smart_shelf",
         "g": "group_control",
-        "name": "🔄 Tare Kệ 2 (BanhOishi)",
+        "name": "🔄 Tare Kệ 2 (MiHaoHao)",
         "props": [
             {
                 "p": "payload"
@@ -1289,7 +1289,7 @@
         "type": "inject",
         "z": "tab_smart_shelf",
         "g": "group_control",
-        "name": "🔄 Tare Kệ 3 (MiHaoHao)",
+        "name": "🔄 Tare Kệ 3 (BanhOishi)",
         "props": [
             {
                 "p": "payload"
@@ -1590,7 +1590,7 @@
     "z": "tab_smart_shelf",
     "g": "group_process",
     "name": "🛒 10-Shelf Grocery Engine",
-    "func": "// Quản lý trạng thái 10 Kệ hàng Tạp hóa Thông minh (K01 - K10)\nlet default10 = [\n  { id: \"K01\", name: \"Coca-Cola 330ml\", weight: 990, unit: 330, qty: 3, min: 3, low_stock: false, category: \"Đồ uống\" },\n  { id: \"K02\", name: \"Mì Hảo Hảo Tôm\", weight: 375, unit: 75, qty: 5, min: 5, low_stock: false, category: \"Ăn liền\" },\n  { id: \"K03\", name: \"Bánh Oishi Snack\", weight: 200, unit: 50, qty: 4, min: 4, low_stock: false, category: \"Bánh kẹo\" },\n  { id: \"K04\", name: \"Sữa tươi Vinamilk\", weight: 760, unit: 190, qty: 4, min: 4, low_stock: false, category: \"Sữa tươi\" },\n  { id: \"K05\", name: \"Bột giặt OMO 800g\", weight: 2400, unit: 800, qty: 3, min: 2, low_stock: false, category: \"Hóa mỹ phẩm\" },\n  { id: \"K06\", name: \"Dầu ăn Simply 1L\", weight: 3680, unit: 920, qty: 4, min: 3, low_stock: false, category: \"Gia vị\" },\n  { id: \"K07\", name: \"Nước mắm Nam Ngư\", weight: 2200, unit: 550, qty: 4, min: 3, low_stock: false, category: \"Gia vị\" },\n  { id: \"K08\", name: \"Bánh Chocopie Hộp\", weight: 594, unit: 198, qty: 3, min: 2, low_stock: false, category: \"Bánh kẹo\" },\n  { id: \"K09\", name: \"Trứng gà Ba Huân\", weight: 1800, unit: 600, qty: 3, min: 2, low_stock: false, category: \"Thực phẩm\" },\n  { id: \"K10\", name: \"Tương ớt Chinsu\", weight: 1120, unit: 280, qty: 4, min: 3, low_stock: false, category: \"Gia vị\" }\n];\n\nlet shelves10 = flow.get('shelves10') || default10;\n\n// 1. Nhận dữ liệu thực tế từ ESP32 Wokwi (Phân khu A: K01, K02, K03)\nif (msg.payload && Array.isArray(msg.payload.shelves)) {\n    for (let s of msg.payload.shelves) {\n        let idx = shelves10.findIndex(x => x.id === s.id || (s.id === 'K1' && x.id === 'K01') || (s.id === 'K2' && x.id === 'K02') || (s.id === 'K3' && x.id === 'K03'));\n        if (idx !== -1) {\n            shelves10[idx].weight = s.weight;\n            shelves10[idx].qty = s.qty;\n            if (s.unit) shelves10[idx].unit = s.unit;\n            if (s.min !== undefined) shelves10[idx].min = s.min;\n            shelves10[idx].low_stock = (shelves10[idx].qty <= shelves10[idx].min);\n        }\n    }\n}\n\n// 2. Xử lý lệnh Tare hoặc Set cấu hình cho bất kỳ kệ nào từ Downlink\nif (msg.payload && msg.payload.cmd) {\n    let target = msg.payload.id || \"\";\n    let idx = shelves10.findIndex(x => x.id === target || (target === 'K1' && x.id === 'K01') || (target === 'K2' && x.id === 'K02') || (target === 'K3' && x.id === 'K03'));\n    if (idx !== -1) {\n        if (msg.payload.cmd === 'tare') {\n            shelves10[idx].weight = 0;\n            shelves10[idx].qty = 0;\n            shelves10[idx].low_stock = true;\n        } else if (msg.payload.cmd === 'set') {\n            if (msg.payload.name) shelves10[idx].name = msg.payload.name;\n            if (msg.payload.unit) shelves10[idx].unit = msg.payload.unit;\n            if (msg.payload.min !== undefined) shelves10[idx].min = msg.payload.min;\n            shelves10[idx].qty = Math.round(shelves10[idx].weight / shelves10[idx].unit);\n            shelves10[idx].low_stock = (shelves10[idx].qty <= shelves10[idx].min);\n        }\n    }\n}\n\n// 3. Simulation runs only when manually triggered; it does not overwrite telemetry on a timer.\n// Mô phỏng khách mua sắm tiệm tạp hóa (K04 - K10)\nif (msg.topic === 'simulate_grocery_event') {\n    let targetIdx = Math.floor(Math.random() * 7) + 3; // Index 3 đến 9 (K04-K10)\n    let s = shelves10[targetIdx];\n    let change = Math.random() > 0.35 ? -1 : 2; // Khách mua hoặc bổ sung\n    s.qty = Math.max(0, Math.min(10, s.qty + change));\n    s.weight = s.qty * s.unit;\n    s.low_stock = (s.qty <= s.min);\n}\n\n// 4. Tính toán tổng hợp\nlet alertCount = shelves10.filter(x => x.low_stock).length;\nlet uptime = (flow.get('uptime') || 0) + 2;\n\nflow.set('shelves10', shelves10);\nflow.set('uptime', uptime);\n\nmsg.payload = {\n    device: msg.topic === 'simulate_grocery_event' ? 'NodeRED_Grocery_Demo' : (msg.payload.device || 'ESP32_SmartShelf_10Tiers'),\n    source: msg.topic === 'simulate_grocery_event' ? 'node-red-demo' : (msg.payload.source || 'sample'),\n    store: \"TapHoaSmart_Q7\",\n    uptime: uptime,\n    shelves: shelves10,\n    total_alerts: alertCount,\n    timestamp: new Date().toISOString()\n};\n\nflow.set('lastTelemetry', msg.payload);\nflow.set('totalAlerts', alertCount);\n\nnode.status({\n    fill: alertCount > 0 ? 'red' : 'green',\n    shape: 'dot',\n    text: `10 Kệ: ${alertCount} kệ thiếu hàng | Updated`\n});\n\nreturn msg;",
+    "func": "// Quản lý trạng thái 10 Kệ hàng Tạp hóa Thông minh (K01 - K10)\nlet default10 = [\n  { id: \"K01\", name: \"Coca-Cola 330ml\", weight: 990, unit: 330, qty: 3, min: 3, low_stock: false, category: \"Đồ uống\" },\n  { id: \"K02\", name: \"Mì Hảo Hảo Tôm\", weight: 375, unit: 75, qty: 5, min: 5, low_stock: false, category: \"Ăn liền\" },\n  { id: \"K03\", name: \"Bánh Oishi Snack\", weight: 200, unit: 50, qty: 4, min: 4, low_stock: false, category: \"Bánh kẹo\" },\n  { id: \"K04\", name: \"Sữa tươi Vinamilk\", weight: 760, unit: 190, qty: 4, min: 4, low_stock: false, category: \"Sữa tươi\" },\n  { id: \"K05\", name: \"Bột giặt OMO 800g\", weight: 2400, unit: 800, qty: 3, min: 2, low_stock: false, category: \"Hóa mỹ phẩm\" },\n  { id: \"K06\", name: \"Dầu ăn Simply 1L\", weight: 3680, unit: 920, qty: 4, min: 3, low_stock: false, category: \"Gia vị\" },\n  { id: \"K07\", name: \"Nước mắm Nam Ngư\", weight: 2200, unit: 550, qty: 4, min: 3, low_stock: false, category: \"Gia vị\" },\n  { id: \"K08\", name: \"Bánh Chocopie Hộp\", weight: 594, unit: 198, qty: 3, min: 2, low_stock: false, category: \"Bánh kẹo\" },\n  { id: \"K09\", name: \"Trứng gà Ba Huân\", weight: 1800, unit: 600, qty: 3, min: 2, low_stock: false, category: \"Thực phẩm\" },\n  { id: \"K10\", name: \"Tương ớt Chinsu\", weight: 1120, unit: 280, qty: 4, min: 3, low_stock: false, category: \"Gia vị\" }\n];\n\nlet shelves10 = flow.get('shelves10') || default10;\n\n// 1. Nhận dữ liệu thực tế từ ESP32 Wokwi (Phân khu A: K01, K02, K03)\nif (msg.payload && Array.isArray(msg.payload.shelves)) {\n    for (let s of msg.payload.shelves) {\n        let idx = shelves10.findIndex(x => x.id === s.id || (s.id === 'K1' && x.id === 'K01') || (s.id === 'K2' && x.id === 'K02') || (s.id === 'K3' && x.id === 'K03'));\n        if (idx !== -1) {\n            shelves10[idx].weight = s.weight;\n            shelves10[idx].qty = s.qty;\n            if (s.unit) shelves10[idx].unit = s.unit;\n            if (s.min !== undefined) shelves10[idx].min = s.min;\n            shelves10[idx].low_stock = (shelves10[idx].qty <= shelves10[idx].min);\n        }\n    }\n}\n\n// 2. Xử lý lệnh Tare hoặc Set cấu hình cho bất kỳ kệ nào từ Downlink\nif (msg.payload && msg.payload.cmd) {\n    let target = msg.payload.id || \"\";\n    let idx = shelves10.findIndex(x => x.id === target || (target === 'K1' && x.id === 'K01') || (target === 'K2' && x.id === 'K02') || (target === 'K3' && x.id === 'K03'));\n    if (idx !== -1) {\n        if (msg.payload.cmd === 'tare') {\n            shelves10[idx].weight = 0;\n            shelves10[idx].qty = 0;\n            shelves10[idx].low_stock = true;\n        } else if (msg.payload.cmd === 'set') {\n            if (msg.payload.name) shelves10[idx].name = msg.payload.name;\n            if (msg.payload.unit) shelves10[idx].unit = msg.payload.unit;\n            if (msg.payload.min !== undefined) shelves10[idx].min = msg.payload.min;\n            shelves10[idx].qty = Math.round(shelves10[idx].weight / shelves10[idx].unit);\n            shelves10[idx].low_stock = (shelves10[idx].qty <= shelves10[idx].min);\n        }\n    }\n}\n\n// 3. Simulation runs only when manually triggered; it does not overwrite telemetry on a timer.\n// Mô phỏng khách mua sắm tiệm tạp hóa (K04 - K10)\nif (msg.topic === 'simulate_grocery_event') {\n    let targetIdx = Math.floor(Math.random() * 7) + 3; // Index 3 đến 9 (K04-K10)\n    let s = shelves10[targetIdx];\n    let change = Math.random() > 0.35 ? -1 : 2; // Khách mua hoặc bổ sung\n    s.qty = Math.max(0, Math.min(10, s.qty + change));\n    s.weight = s.qty * s.unit;\n    s.low_stock = (s.qty <= s.min);\n}\n\n// 4. Tính toán tổng hợp\nlet alertCount = shelves10.filter(x => x.low_stock).length;\n// Lấy uptime thật của ESP32; bản tin mô phỏng không có uptime thì giữ giá trị cũ.\nlet uptime = (msg.payload && Number.isFinite(msg.payload.uptime)) ? msg.payload.uptime : (flow.get('uptime') || 0);\n\nflow.set('shelves10', shelves10);\nflow.set('uptime', uptime);\n\nmsg.payload = {\n    device: msg.topic === 'simulate_grocery_event' ? 'NodeRED_Grocery_Demo' : (msg.payload.device || 'ESP32_SmartShelf_10Tiers'),\n    source: msg.topic === 'simulate_grocery_event' ? 'node-red-demo' : (msg.payload.source || 'sample'),\n    store: \"TapHoaSmart_Q7\",\n    uptime: uptime,\n    shelves: shelves10,\n    total_alerts: alertCount,\n    timestamp: new Date().toISOString()\n};\n\nflow.set('lastTelemetry', msg.payload);\nflow.set('totalAlerts', alertCount);\n\nnode.status({\n    fill: alertCount > 0 ? 'red' : 'green',\n    shape: 'dot',\n    text: `10 Kệ: ${alertCount} kệ thiếu hàng | Updated`\n});\n\nreturn msg;",
     "outputs": 1,
     "timeout": 0,
     "noerr": 0,

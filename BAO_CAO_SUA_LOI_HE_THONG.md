@@ -142,7 +142,18 @@ python kich_thuoc_telemetry.py
 - **Chưa chạy trên môi trường thật:** chưa mô phỏng Wokwi, chưa chạy container Docker, chưa gửi tin Telegram thật, chưa lắp mạch. Phần Telegram mới kiểm tra đến mức nội dung tin đúng cú pháp MarkdownV2, chưa nhận phản hồi thật từ Telegram.
 - **Giới hạn độ dài telemetry:** nếu đổi tên cả 10 sản phẩm thành tên rất dài bằng lệnh `set`, bản tin có thể vượt 1.536 byte. Khi đó firmware ghi log lỗi và bỏ qua lần gửi, chứ không gửi JSON hỏng.
 - **Broker công cộng:** bản sửa ở mục 2.5 chỉ ngăn mã chạy trên dashboard. Người lạ vẫn gửi được telemetry giả và lệnh `set`/`tare` tới ESP32. Triển khai thật cần broker riêng có tài khoản/mật khẩu và TLS.
-- **Các điểm nhỏ chưa sửa** (mục 8.6 của báo cáo đối chiếu): nhãn Kệ 2 và Kệ 3 trong Node-RED bị đảo so với firmware; lệnh `tare` qua MQTT chưa cập nhật LED ngay; tin Telegram trả lời từ firmware chưa escape tên sản phẩm; LED của K01, K05, K07 nằm trên chân khởi động GPIO2, GPIO12, GPIO15.
+- **Các điểm nhỏ chưa sửa** (mục 8.6 của báo cáo đối chiếu): lệnh `tare` qua MQTT chưa cập nhật LED ngay; tin Telegram trả lời từ firmware chưa escape tên sản phẩm; LED của K01, K05, K07 nằm trên chân khởi động GPIO2, GPIO12, GPIO15; độ lệch tare chưa được lưu vào flash; nhật ký web chỉ giữ 150 bản ghi (khoảng 15 chu kỳ).
+
+## 5a. Đợt sửa bổ sung (cùng ngày)
+
+Khi cập nhật tiểu luận, nhóm sửa thêm bốn điểm nhỏ đã nêu ở Bảng 3.5 của bản tiểu luận trước:
+
+| Điểm | Cách sửa | Kiểm chứng (`kiem_tra_nodered.js`) |
+|---|---|---|
+| Tiêu đề tin Telegram sai chữ hoa có dấu ("CảNH BÁO", "SẬP HẾT", "CầN BỒ SUNG") | Sửa mã Unicode thành Ả (U+1EA2), Ắ (U+1EAE), Ầ (U+1EA6), Ổ (U+1ED4) | Trước: 4 lỗi chính tả mỗi file. Sau: 0 |
+| Engine tự cộng uptime thêm 2 mỗi bản tin | Lấy `uptime` từ bản tin ESP32; bản tin mô phỏng không có uptime thì giữ giá trị cũ | ESP32 gửi 3725 giây: trước Engine ghi 2, sau ghi 3725 |
+| Nhãn Kệ 2 và Kệ 3 trong Node-RED bị đảo | Đổi chỗ "BanhOishi" và "MiHaoHao" ở nút inject, nút đổi nhãn và nút gauge | Đúng với firmware: K02 Mì Hảo Hảo, K03 Bánh Oishi |
+| Web ghi "Dưới ngưỡng 4" cho kệ đang có đúng 4 món | Ghi "ngưỡng báo 4, cảnh báo khi không vượt quá ngưỡng" | Đọc lại mã |
 
 ## 6. Việc cần làm tiếp
 
