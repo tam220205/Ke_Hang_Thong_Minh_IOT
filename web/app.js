@@ -304,14 +304,6 @@ function renderShelfCards() {
         <div class="shelf-unit-info">
           <i class="fa-solid fa-scale-balanced"></i> 1 món: <strong id="unit-${shelf.id}">${shelf.unit}</strong>g
         </div>
-        <div class="quick-sim-buttons">
-          <button class="btn-mini-sim buy" onclick="quickAdjustQty('${shelf.id}', -1)" title="Mô phỏng khách mua 1 món">
-            <i class="fa-solid fa-minus"></i> Mua
-          </button>
-          <button class="btn-mini-sim restock" onclick="quickAdjustQty('${shelf.id}', 1)" title="Bổ sung thêm 1 món vào kệ">
-            <i class="fa-solid fa-plus"></i> Nhập
-          </button>
-        </div>
         <div class="shelf-btn-group">
           <button class="btn-card-action btn-tare" onclick="sendTareCmd('${shelf.id}')" title="Hiệu chuẩn 0g cho kệ ${shelf.id}">
             <i class="fa-solid fa-bullseye"></i> Tare
@@ -338,27 +330,6 @@ function filterCategory(cat) {
     }
   });
   renderShelfCards();
-}
-
-// Quick adjust qty (+1 or -1) for live demonstration
-function quickAdjustQty(shelfId, delta) {
-  const normId = normalizeShelfId(shelfId);
-  const s = shelfState[normId];
-  if (!s) return;
-
-  s.qty = Math.max(0, s.qty + delta);
-  s.weight = Math.round(s.qty * s.unit);
-  s.low_stock = (s.qty <= s.min);
-
-  updateUIWithTelemetry({
-    device: 'TapHoa_InteractiveDemo',
-    uptime: Math.floor(performance.now() / 1000),
-    shelves: Object.values(shelfState),
-    total_alerts: Object.values(shelfState).filter(x => x.low_stock).length
-  }, true);
-
-  const actionText = delta > 0 ? `Đã bổ sung +1 ${s.name}` : `Khách đã mua 1 ${s.name}`;
-  showToast(`${actionText} (Còn ${s.qty} món)`, delta > 0 ? 'success' : 'info');
 }
 
 // ==============================================================================

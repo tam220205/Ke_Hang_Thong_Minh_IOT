@@ -266,7 +266,18 @@ void loadPreferences() {
     if (prefs.isKey(keyName.c_str())) shelves[i].name = prefs.getString(keyName.c_str(), shelves[i].name);
     if (prefs.isKey(keyUnit.c_str())) shelves[i].unit_weight = prefs.getFloat(keyUnit.c_str(), shelves[i].unit_weight);
     if (prefs.isKey(keyMin.c_str()))  shelves[i].min_qty = prefs.getInt(keyMin.c_str(), shelves[i].min_qty);
+
+    // Độ lệch tare được lưu riêng để không phải hiệu chuẩn lại sau khi mất điện.
+    String keyTare = String(shelves[i].id) + "_t";
+    if (prefs.isKey(keyTare.c_str())) shelves[i].tare_offset = prefs.getLong(keyTare.c_str(), 0);
   }
+  prefs.end();
+}
+
+void saveTareOffset(int index) {
+  prefs.begin("taphoa10", false);
+  String keyTare = String(shelves[index].id) + "_t";
+  prefs.putLong(keyTare.c_str(), shelves[index].tare_offset);
   prefs.end();
 }
 
@@ -533,6 +544,7 @@ void handleTelegramIncoming(int numNewMessages) {
 
       Shelf& shelf = shelves[shelfIndex];
       shelf.tare_offset += (long)((shelf.current_weight / 1000.0) * 420.0);
+      saveTareOffset(shelfIndex);
       shelf.current_weight = 0;
       shelf.current_qty = 0;
       shelf.is_low_stock = (shelf.current_qty <= shelf.min_qty);
@@ -626,6 +638,7 @@ void handleIncomingCommand(const char* payload) {
     for (int i = 0; i < 10; i++) {
       if (isShelfMatch(targetId, shelves[i].id)) {
         shelves[i].tare_offset += (long)((shelves[i].current_weight / 1000.0) * 420.0);
+        saveTareOffset(i);
         shelves[i].current_weight = 0;
         shelves[i].current_qty = 0;
         shelves[i].is_low_stock = true;

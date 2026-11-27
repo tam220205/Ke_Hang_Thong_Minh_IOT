@@ -557,7 +557,6 @@ button {
   display: none;
 }
 
-.quick-sim-buttons,
 .shelf-btn-group {
   display: inline-flex;
   align-items: center;
@@ -567,7 +566,6 @@ button {
   overflow: hidden;
 }
 
-.btn-mini-sim,
 .btn-card-action {
   background: transparent;
   border: none;
@@ -582,27 +580,17 @@ button {
   transition: background-color 0.15s ease, color 0.15s ease;
 }
 
-.btn-mini-sim:last-child,
 .btn-card-action:last-child {
   border-right: none;
 }
 
-.btn-mini-sim i,
 .btn-card-action i {
   font-size: 10px;
 }
 
-.btn-mini-sim:hover,
 .btn-card-action:hover {
   background: var(--surface-muted);
   color: var(--text);
-}
-
-.btn-mini-sim.buy:hover {
-  color: var(--danger);
-}
-.btn-mini-sim.restock:hover {
-  color: var(--accent);
 }
 
 /* ============================================================================

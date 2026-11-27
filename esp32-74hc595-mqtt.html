@@ -1,0 +1,755 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>ESP32 + 74HC595 + MQTT — Hướng dẫn sinh viên</title>
+  <style>
+    :root {
+      --bg: #0b1220;
+      --card: #121a2b;
+      --fg: #e8eef8;
+      --muted: #8fa3bf;
+      --accent: #3dd6c6;
+      --accent2: #5b8cff;
+      --warn: #ffb454;
+      --code: #0a101c;
+      --border: #243049;
+    }
+    * { box-sizing: border-box; }
+    html, body {
+      margin: 0; height: 100%;
+      background: var(--bg); color: var(--fg);
+      font-family: "Be Vietnam Pro", "Segoe UI", system-ui, sans-serif;
+    }
+    .deck { height: 100%; overflow: hidden; position: relative; }
+    .slide {
+      display: none; height: 100%; padding: clamp(1.5rem, 4vw, 3rem);
+      flex-direction: column; justify-content: center; gap: 1rem;
+      max-width: 1100px; margin: 0 auto;
+    }
+    .slide.active { display: flex; animation: in .25s ease; }
+    @keyframes in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+    h1 { font-size: clamp(1.8rem, 4.5vw, 2.8rem); margin: 0; line-height: 1.2; }
+    h2 { font-size: clamp(1.4rem, 3.2vw, 2rem); margin: 0; color: var(--accent); }
+    h3 { margin: 0 0 .4rem; color: var(--accent2); font-size: 1.15rem; }
+    p, li { font-size: clamp(1rem, 2vw, 1.25rem); line-height: 1.5; color: var(--fg); }
+    .muted { color: var(--muted); }
+    .tag {
+      display: inline-block; padding: .25rem .7rem; border-radius: 999px;
+      background: #1a2740; border: 1px solid var(--border); color: var(--accent);
+      font-size: .85rem; font-weight: 700; letter-spacing: .04em;
+    }
+    .grid { display: grid; gap: 1rem; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); }
+    .card {
+      background: var(--card); border: 1px solid var(--border);
+      border-radius: 14px; padding: 1rem 1.15rem;
+    }
+    pre, code {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    }
+    pre {
+      background: var(--code); border: 1px solid var(--border);
+      border-radius: 12px; padding: 1rem 1.1rem; overflow: auto;
+      font-size: clamp(.78rem, 1.5vw, .95rem); line-height: 1.45;
+      margin: 0;
+    }
+    .row { display: flex; gap: 1rem; flex-wrap: wrap; align-items: stretch; }
+    .row > * { flex: 1 1 280px; }
+    .footer {
+      position: fixed; left: 0; right: 0; bottom: 0;
+      display: flex; justify-content: space-between; align-items: center;
+      padding: .6rem 1.2rem; background: rgba(11,18,32,.85);
+      border-top: 1px solid var(--border); font-size: .85rem; color: var(--muted);
+      backdrop-filter: blur(8px);
+    }
+    .footer button {
+      background: #1a2740; color: var(--fg); border: 1px solid var(--border);
+      border-radius: 8px; padding: .4rem .8rem; cursor: pointer; font-weight: 600;
+    }
+    .footer button:hover { border-color: var(--accent); color: var(--accent); }
+    .hl { color: var(--accent); font-weight: 700; }
+    .warn { color: var(--warn); }
+    ul { margin: .3rem 0; padding-left: 1.2rem; }
+    .title-slide { text-align: left; }
+    .title-slide h1 { max-width: 16ch; }
+    .big { font-size: clamp(1.1rem, 2.4vw, 1.45rem); }
+    kbd {
+      background: #1a2740; border: 1px solid var(--border); border-radius: 6px;
+      padding: .1rem .4rem; font-size: .85em;
+    }
+    .wire { font-size: .95rem; }
+    table { width: 100%; border-collapse: collapse; font-size: clamp(.9rem, 1.7vw, 1.1rem); }
+    th, td { border: 1px solid var(--border); padding: .55rem .7rem; text-align: left; }
+    th { background: #152036; color: var(--accent); }
+    .diagram {
+      font-family: ui-monospace, Menlo, monospace; white-space: pre;
+      background: var(--code); border: 1px solid var(--border); border-radius: 12px;
+      padding: 1rem; font-size: clamp(.65rem, 1.35vw, .88rem); line-height: 1.35; overflow: auto;
+    }
+    .pin-grid {
+      display: grid; grid-template-columns: 1fr 1fr; gap: .55rem 1rem;
+      font-size: clamp(.82rem, 1.55vw, 1rem);
+    }
+    .pin-grid .p {
+      display: grid; grid-template-columns: 5.5rem 1fr; gap: .35rem;
+      background: var(--card); border: 1px solid var(--border); border-radius: 10px;
+      padding: .45rem .6rem; align-items: start;
+    }
+    .pin-grid .p b { color: var(--accent); font-family: ui-monospace, Menlo, monospace; font-size: .9em; }
+    .pin-grid .p span { color: var(--muted); line-height: 1.35; }
+    .note {
+      background: #152036; border-left: 3px solid var(--accent);
+      padding: .55rem .85rem; border-radius: 0 10px 10px 0; color: var(--muted);
+      font-size: clamp(.85rem, 1.6vw, 1.05rem);
+    }
+    .slide.dense { justify-content: flex-start; padding-top: clamp(1.2rem, 3vw, 2rem); padding-bottom: 3.5rem; gap: .65rem; overflow: auto; }
+    .slide.dense p, .slide.dense li { font-size: clamp(.9rem, 1.7vw, 1.1rem); }
+    table.compact th, table.compact td { padding: .35rem .5rem; font-size: clamp(.8rem, 1.5vw, .95rem); }
+    .legend span { margin-right: .85rem; white-space: nowrap; }
+    .c-data { color: #5dffa8; } .c-clk { color: #ffe066; } .c-latch { color: #ff9f6b; }
+    .c-gnd { color: #9aa8bc; } .c-vcc { color: #ff6b6b; } .c-chain { color: #7ab8ff; }
+  </style>
+</head>
+<body>
+<div class="deck" id="deck">
+
+  <!-- 1 -->
+  <section class="slide active title-slide">
+    <span class="tag">LAB IoT · ESP32</span>
+    <h1>Điều khiển nhiều thiết bị bằng ESP32 + 74HC595 + MQTT</h1>
+    <p class="big muted">Slide hướng dẫn code mẫu: LED / relay matrix, topic &amp; payload JSON, bật/tắt nhiều kênh cùng lúc.</p>
+    <p class="muted">Tham chiếu repo: <code>firmware/nodemcu-shelf</code> · Massive Handover</p>
+  </section>
+
+  <!-- 2 -->
+  <section class="slide">
+    <h2>Mục tiêu buổi học</h2>
+    <div class="grid">
+      <div class="card"><h3>1. Phần cứng</h3><p>Hiểu 74HC595, daisy-chain 2 chip → 16 kênh LED/relay từ <span class="hl">3 chân GPIO</span>.</p></div>
+      <div class="card"><h3>2. MQTT</h3><p>Thiết kế <span class="hl">topic</span> và <span class="hl">payload JSON</span> để cloud/app điều khiển device.</p></div>
+      <div class="card"><h3>3. Firmware</h3><p>Viết ESP32 subscribe MQTT → parse JSON → ghi shift register.</p></div>
+      <div class="card"><h3>4. Thực hành</h3><p>Publish lệnh bật nhiều kênh cùng lúc (mask / danh sách index).</p></div>
+    </div>
+  </section>
+
+  <!-- 3 -->
+  <section class="slide">
+    <h2>Kiến trúc IoT đơn giản</h2>
+    <div class="diagram">┌─────────────┐     MQTT publish      ┌──────────────┐     Wi‑Fi      ┌─────────────┐
+│  App / API  │ ───────────────────▶  │ MQTT Broker  │ ◀────────────▶ │   ESP32     │
+│ (Python,    │   topic + JSON        │ emqx /       │   subscribe    │ + 74HC595   │
+│  Node, …)   │                       │ mosquitto    │                │ LED / Relay │
+└─────────────┘                       └──────────────┘                └─────────────┘</div>
+    <ul>
+      <li><span class="hl">Broker</span>: trung gian (lab: <code>broker.emqx.io</code> hoặc Mosquitto Docker).</li>
+      <li><span class="hl">Topic</span>: “địa chỉ kênh” — ai subscribe topic đó sẽ nhận lệnh.</li>
+      <li><span class="hl">Payload</span>: nội dung lệnh (thường JSON).</li>
+    </ul>
+  </section>
+
+  <!-- 4 -->
+  <section class="slide">
+    <h2>Vì sao dùng 74HC595?</h2>
+    <div class="row">
+      <div class="card">
+        <h3>Vấn đề</h3>
+        <p>ESP32 có nhiều GPIO nhưng điều khiển 8–16 LED/relay trực tiếp tốn chân, dây rối, khó mở rộng.</p>
+      </div>
+      <div class="card">
+        <h3>Giải pháp</h3>
+        <p><span class="hl">Shift register</span> 74HC595: nạp tuần tự 8 bit qua 3 dây (Data, Clock, Latch), rồi song song ra Q0–Q7.</p>
+      </div>
+    </div>
+    <ul>
+      <li>1 chip = 8 đầu ra · Daisy-chain Q7S → DS chip sau = 16, 24, … kênh.</li>
+      <li>LED demo lab · Relay module cho tải thật (đèn, quạt, khóa…) — <span class="warn">cần driver / opto, không nối AC trực tiếp vào 74HC595!</span></li>
+    </ul>
+  </section>
+
+  <!-- 5 -->
+  <section class="slide dense">
+    <h2>74HC595 — chân DIP-16 (nhìn từ trên, notch phía trên)</h2>
+    <div class="diagram">          ┌───────────⊙───────────┐
+     Q1  1│                       │16  VCC     (+3V3 / +5V)
+     Q2  2│                       │15  Q0
+     Q3  3│       74HC595         │14  DS      (SER / Data)
+     Q4  4│     Shift Register    │13  OE      (Output Enable, ACTIVE LOW)
+     Q5  5│                       │12  STCP    (RCLK / Latch)
+     Q6  6│                       │11  SHCP    (SRCLK / Clock)
+     Q7  7│                       │10  SRCLR   (MR / Clear, ACTIVE LOW)
+    GND  8│                       │ 9  Q7S     (serial out → chip sau)
+          └───────────────────────┘</div>
+    <p class="muted">Một số datasheet/board ghi <code>SER=DS</code>, <code>RCLK=STCP</code>, <code>SRCLK=SHCP</code>, <code>MR=/SRCLR</code> — cùng chức năng.</p>
+  </section>
+
+  <!-- 6 -->
+  <section class="slide dense">
+    <h2>Giải thích từng chân 74HC595</h2>
+    <div class="pin-grid">
+      <div class="p"><b>VCC</b><span>Nguồn logic chip. Lab ESP32: nối <span class="hl">3V3</span>. Module 5V: dùng 5V (mức tín hiệu ESP32 3.3V thường vẫn nhận được).</span></div>
+      <div class="p"><b>GND</b><span>Mass chung với ESP32. <span class="warn">Bắt buộc chung GND</span> nếu không tín hiệu “lơ lửng”.</span></div>
+      <div class="p"><b>DS</b><span><span class="c-data">Data / SER</span> — từng bit tuần tự từ MCU. Mỗi cạnh lên của SHCP, 1 bit vào thanh ghi dịch.</span></div>
+      <div class="p"><b>SHCP</b><span><span class="c-clk">Clock dịch</span> (SRCLK) — xung clock đẩy bit vào shift register.</span></div>
+      <div class="p"><b>STCP</b><span><span class="c-latch">Latch</span> (RCLK) — cạnh lên: copy 8 bit từ shift → thanh ghi lưu trữ → ra chân Q0–Q7.</span></div>
+      <div class="p"><b>OE</b><span><span class="warn">Output Enable, active LOW</span>. OE=0 → Q0–Q7 hoạt động. OE=1 → ngõ ra Hi-Z (tắt). Lab: nối GND.</span></div>
+      <div class="p"><b>SRCLR</b><span><span class="warn">Clear, active LOW</span>. =0 xóa shift register. Lab: nối VCC (không xóa).</span></div>
+      <div class="p"><b>Q0–Q7</b><span>8 ngõ ra song song (LED anode / tín hiệu relay). Q0 = bit LSB sau khi latch (tùy thứ tự MSBFIRST).</span></div>
+      <div class="p"><b>Q7S</b><span><span class="c-chain">Serial out</span> — bit tràn ra ngoài (sau 8 xung clock). Nối sang <b>DS</b> chip kế để daisy-chain.</span></div>
+    </div>
+  </section>
+
+  <!-- 7 -->
+  <section class="slide dense">
+    <h2>Luồng dữ liệu trong 1 chip (logic)</h2>
+    <div class="diagram">MCU ──DS──▶ [ Shift register 8-bit ] ──Q7S──▶ (sang chip sau)
+                 ▲              │
+              SHCP (clock)      │  cạnh lên STCP (latch)
+                                ▼
+                         [ Storage 8-bit ]
+                                │
+                    ┌───┬───┬───┼───┬───┬───┬───┐
+                   Q0  Q1  Q2  Q3  Q4  Q5  Q6  Q7
+                    │   │   │   │   │   │   │   │
+                   LED LED …              (hoặc IN relay)</div>
+    <ul>
+      <li><span class="hl">shiftOut()</span> chỉ đẩy bit vào shift register — LED chưa đổi ngay.</li>
+      <li>Khi <span class="hl">STCP HIGH</span> (latch), Q0–Q7 mới cập nhật đồng loạt → tránh nhấp nháy giữa chừng.</li>
+      <li><span class="hl">OE=GND</span> luôn bật output; muốn “tắt hết nhanh” có thể kéo OE lên HIGH (không bắt buộc trong lab).</li>
+    </ul>
+  </section>
+
+  <!-- 8 -->
+  <section class="slide dense">
+    <h2>Sơ đồ logic ghép chân — ESP32 ↔ 2×74HC595 ↔ LED</h2>
+    <p class="legend muted">
+      <span class="c-data">■ Data</span>
+      <span class="c-clk">■ Clock</span>
+      <span class="c-latch">■ Latch</span>
+      <span class="c-chain">■ Daisy-chain</span>
+      <span class="c-vcc">■ 3V3</span>
+      <span class="c-gnd">■ GND</span>
+    </p>
+    <div class="diagram">                 ESP32 DevKit
+            ┌──────────────────┐
+            │ GPIO14 (DS)  ────┼──<span class="c-data">──DS──</span>┐
+            │ GPIO12 (CLK) ────┼──<span class="c-clk">──SHCP─┼──────────────┐</span>
+            │ GPIO13 (LAT) ────┼──<span class="c-latch">──STCP─┼──────────────┼──┐</span>
+            │ 3V3          ────┼──<span class="c-vcc">──VCC──┼── + SRCLR────┼──┼──▶ chip2 VCC/SRCLR</span>
+            │ GND          ────┼──<span class="c-gnd">──GND──┼── + OE───────┼──┼──▶ chip2 GND/OE</span>
+            └──────────────────┘         │              │  │
+                                   ┌─────▼─────┐   ┌────▼──▼────┐
+                                   │  74HC595  │   │  74HC595   │
+                                   │   SR1     │   │   SR2      │
+                                   │ Q7S ──<span class="c-chain">DS</span>──┼──▶│            │
+                                   │ Q0…Q7     │   │ Q0…Q7      │
+                                   └─┬┬┬┬┬┬┬┬──┘   └─┬┬┬┬┬┬┬┬───┘
+                                     ││││││││         ││││││││
+                                   LED0…LED7       LED8…LED15
+                                   (hàng 1)        (hàng 2)
+                                     cathode ──── chung GND (qua điện trở ~220Ω khuyến nghị)</div>
+  </section>
+
+  <!-- 9 -->
+  <section class="slide dense">
+    <h2>Bảng nối chân lab (đúng diagram.json / Wokwi)</h2>
+    <table class="compact">
+      <thead>
+        <tr><th>Nguồn</th><th>Đích</th><th>Ghi chú</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>ESP32 GPIO <b>14</b></td><td>SR1 <b>DS</b></td><td class="c-data">Data vào chip đầu</td></tr>
+        <tr><td>ESP32 GPIO <b>12</b></td><td>SR1 <b>SHCP</b> + SR2 <b>SHCP</b></td><td class="c-clk">Clock chung 2 chip</td></tr>
+        <tr><td>ESP32 GPIO <b>13</b></td><td>SR1 <b>STCP</b> + SR2 <b>STCP</b></td><td class="c-latch">Latch chung 2 chip</td></tr>
+        <tr><td>SR1 <b>Q7S</b></td><td>SR2 <b>DS</b></td><td class="c-chain">Daisy-chain (bắt buộc cho 16 LED)</td></tr>
+        <tr><td>ESP32 <b>3V3</b></td><td>SR1/SR2 <b>VCC</b>, <b>SRCLR</b></td><td class="c-vcc">Nguồn + không clear</td></tr>
+        <tr><td>ESP32 <b>GND</b></td><td>SR1/SR2 <b>GND</b>, <b>OE</b></td><td class="c-gnd">Mass + luôn enable output</td></tr>
+        <tr><td>SR1 <b>Q0…Q7</b></td><td>LED0…LED7 <b>A</b> (anode)</td><td>bit 0…7 của mask</td></tr>
+        <tr><td>SR2 <b>Q0…Q7</b></td><td>LED8…LED15 <b>A</b></td><td>bit 8…15 của mask</td></tr>
+        <tr><td>LED0…15 <b>C</b> (cathode)</td><td>GND (qua R ~220Ω)</td><td>Wokwi có thể bỏ R; kit thật nên có R</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <!-- 10 -->
+  <section class="slide dense">
+    <h2>Ma trận / hàng LED — mapping kênh</h2>
+    <div class="diagram">Mask 16-bit (sau 2 lần shiftOut MSBFIRST trong code mẫu):
+
+  bit15 bit14 … bit8 │ bit7  bit6 … bit0
+  ────────────────────┼─────────────────
+   SR2:Q7 … SR2:Q0    │  SR1:Q7 … SR1:Q0
+   LED15  … LED8      │  LED7   … LED0
+
+Ví dụ kiosk kho:
+  A-01 → ledIndex 0  → bit0  → SR1 Q0
+  A-08 → ledIndex 7  → bit7  → SR1 Q7   ← LED hàng 1, cuối cùng
+  A-09 → ledIndex 8  → bit8  → SR2 Q0
+  A-16 → ledIndex 15 → bit15 → SR2 Q7
+
+Bật nhiều kênh: mask = (1&lt;&lt;0)|(1&lt;&lt;3)|(1&lt;&lt;7)  hoặc action "set" / "setMany"</div>
+    <p class="muted">Đây là “hàng LED song song” (mỗi Q một LED), không phải quét hàng-cột LED matrix 8×8. Cùng nguyên lý 74HC595; matrix quét cần thêm transistor hàng + timer.</p>
+  </section>
+
+  <!-- 11 -->
+  <section class="slide dense">
+    <h2>Đặc tính điện — ESP32 DevKit (Tổng công suất)</h2>
+    <table class="compact">
+      <thead><tr><th>Thông số</th><th>Giá trị điển hình</th><th>Ý nghĩa lab</th></tr></thead>
+      <tbody>
+        <tr><td>Logic GPIO / chip 74HC595</td><td><b>3.3 V</b></td><td>Nối VCC 74HC595 từ chân <b>3V3</b> board (không lấy 5V cho logic nếu LED chạy 3.3V)</td></tr>
+        <tr><td>LDO 3V3 trên DevKit</td><td>~<b>500 mA – 1 A</b> (tùy board)</td><td>Chia cho MCU + Wi‑Fi + ngoại vi. <span class="warn">Không dùng hết catalogue!</span></td></tr>
+        <tr><td>ESP32 idle (Wi‑Fi on)</td><td>~<b>80 – 160 mA</b></td><td>TX Wi‑Fi / MQTT có thể spike ~240–300 mA+</td></tr>
+        <tr><td>Tổng công suất cho LED/74HC595</td><td>thực tế ~<b>150 – 250 mA</b></td><td>An toàn: giữ tổng ngoại vi &lt; <b>200 mA</b> khi vẫn dùng Wi‑Fi</td></tr>
+        <tr><td>Chân GPIO ESP32</td><td>max ~<b>40 mA</b>/chân · khuyến nghị &lt; <b>20 mA</b></td><td>Chỉ kéo DS/SHCP/STCP (µA–vài mA) — <span class="hl">không</span> lấy dòng LED qua GPIO</td></tr>
+      </tbody>
+    </table>
+    <p class="muted">Sụp nguồn / reset lung tung thường do: USB yếu + Wi‑Fi TX + quá nhiều LED sáng cùng lúc trên rail 3V3.</p>
+  </section>
+
+  <!-- 12 -->
+  <section class="slide dense">
+    <h2>Đặc tính điện — 74HC595</h2>
+    <table class="compact">
+      <thead><tr><th>Thông số</th><th>Datasheet (HC)</th><th>Khuyến nghị lab</th></tr></thead>
+      <tbody>
+        <tr><td>VCC</td><td>2.0 – 6.0 V</td><td><b>3.3 V</b> (cùng ESP32) hoặc 5 V nếu module thiết kế 5V</td></tr>
+        <tr><td>Dòng tĩnh chip (không tải Q)</td><td>~µA – vài mA</td><td>Daisy-chain nhiều chip: logic gần như không tốn thêm đáng kể</td></tr>
+        <tr><td>I<sub>O</sub> mỗi chân Qx</td><td>Abs max ~±35 mA</td><td>LED: giữ <b>5 – 10 mA</b>/chân (có điện trở)</td></tr>
+        <tr><td>Tổng dòng mọi Q + VCC (1 package)</td><td>Abs max ~<b>70 mA</b></td><td>1 chip: tối đa ~<b>8 LED × 8 mA ≈ 64 mA</b> — sát trần, nên ≤ 6–7 mA/LED</td></tr>
+        <tr><td>Mức logic vào (DS, CLK…)</td><td>V<sub>IH</sub> ≈ 0.7×VCC</td><td>VCC=3.3V → ESP32 3.3V OK. VCC=5V: thường vẫn nhận 3.3V nhưng biên kém hơn</td></tr>
+      </tbody>
+    </table>
+    <p><span class="warn">Giới hạn “sụp” không phải số chip 74HC595, mà tổng dòng LED/relay lấy từ rail 3V3 (hoặc từ chính chân Q).</span></p>
+    <div class="diagram">Hình: vì sao “nối sai / quá tải” làm sụp nguồn 3V3?
+
+  USB 5V ──▶ LDO trên DevKit ──▶ đường 3V3 (rail 3V3)
+                                   │
+              ┌────────────────────┼────────────────────┐
+              ▼                    ▼                    ▼
+           ESP32+Wi‑Fi      VCC chip 74HC595      (nếu sai) LED/relay
+           ~100–300 mA      (chip gần như        lấy dòng LỚN từ
+                             không tốn)           3V3 hoặc từ chân Q
+                                   │
+                    Q0 Q1 … Q7 ────┴──▶ LED (qua R?) / cuộn relay?
+
+  ┌─ ĐÚNG (ổn) ─────────────────────────────────────────────────┐
+  │  3V3 ──▶ VCC 74HC595                                        │
+  │  Qx  ──▶ anode LED ──▶ điện trở 220Ω ──▶ GND                │
+  │  Dòng mỗi LED ~5 mA · 8 LED ~40 mA  &lt; 70 mA (giới hạn chip) │
+  └─────────────────────────────────────────────────────────────┘
+
+  ┌─ SAI → SỤP / NÓNG / RESET ──────────────────────────────────┐
+  │  (1) LED không điện trở: Qx ──▶ LED ──▶ GND                 │
+  │      → mỗi chân Q kéo hàng chục mA → vượt 70 mA/chip        │
+  │  (2) Bật hết nhiều LED trên cùng rail 3V3 + Wi‑Fi TX        │
+  │      → tổng &gt; khả năng LDO → điện áp 3V3 tụt → ESP32 reset  │
+  │  (3) Qx ──▶ trực tiếp cuộn relay (~50–80 mA/cuộn)           │
+  │      → cháy chân Q / sụp 3V3 (relay phải dùng module + 5V)  │
+  └─────────────────────────────────────────────────────────────┘
+
+  Nhớ: thêm chip 74HC595 (daisy-chain) gần như không tăng dòng logic;
+        thêm LED/relay sáng cùng lúc mới làm sụp nguồn.</div>
+  </section>
+
+  <!-- 13 -->
+  <section class="slide dense">
+    <h2>Tính dòng LED + điện trở</h2>
+    <div class="diagram">Công thức:  I ≈ (VCC − Vf_LED) / R
+
+Ví dụ LED xanh lá, Vf ≈ 2.0 – 2.2 V, VCC = 3.3 V, R = 220 Ω:
+  I ≈ (3.3 − 2.1) / 220 ≈ 5.5 mA   ← an toàn cho 74HC595
+
+R = 100 Ω → I ≈ 12 mA  (sáng hơn, nhưng 8 LED ≈ 96 mA > 70 mA package → nóng/hỏng 74HC595!)
+R = 470 Ω → I ≈ 2.5 mA (đủ nhìn trong nhà, tiết kiệm nguồn)
+
+Tổng 1 chip (8 LED cùng sáng):   I_chip ≈ 8 × I_LED
+Tổng 2 chip (16 LED cùng sáng):  I_leds ≈ 16 × I_LED  (+ dòng MCU/Wi‑Fi)</div>
+    <div class="grid">
+      <div class="card"><h3>Lab demo (khuyến nghị)</h3><p>R = <b>220–330 Ω</b> · I ≈ 4–6 mA/LED · 16 LED full-on ≈ <b>65–95 mA</b> + Wi‑Fi → vẫn ổn trên USB tốt.</p></div>
+      <div class="card"><h3>Không khuyến nghị</h3><p>LED không điện trở / R &lt; 100 Ω · bật hết 16 LED → dễ sụt 3V3, ESP32 reset khi publish MQTT.</p></div>
+    </div>
+  </section>
+
+  <!-- 14 -->
+  <section class="slide dense">
+    <h2>ESP32 gắn được bao nhiêu 74HC595?</h2>
+    <p class="big">Về <span class="hl">tín hiệu</span>: daisy-chain gần như không giới hạn (8, 16, 24… kênh) — DS/SHCP/STCP chỉ 3 chân.</p>
+    <p class="big">Về <span class="hl">nguồn</span>: giới hạn bởi tổng dòng tải trên Q, không phải “số chip”.</p>
+    <table class="compact">
+      <thead><tr><th>Cấu hình</th><th>Ước lượng dòng LED (R=220Ω, ~5.5mA)</th><th>Lấy 3V3 từ DevKit?</th></tr></thead>
+      <tbody>
+        <tr><td><b>1×74HC595</b> · 8 LED</td><td>~44 mA</td><td><span class="hl">OK</span> thoải mái</td></tr>
+        <tr><td><b>2×74HC595</b> · 16 LED (lab này)</td><td>~88 mA</td><td><span class="hl">OK</span> nếu USB ≥500 mA, có R</td></tr>
+        <tr><td><b>3×74HC595</b> · 24 LED full-on</td><td>~132 mA</td><td>Cận biên khi Wi‑Fi TX — nên giảm I hoặc không bật hết</td></tr>
+        <tr><td><b>4×74HC595</b> · 32 LED full-on</td><td>~176 mA</td><td><span class="warn">Rủi ro sụp 3V3</span> — tách nguồn LED hoặc R lớn hơn / không full-on</td></tr>
+        <tr><td>≥4 chip + Wi‑Fi ổn định</td><td>—</td><td>Nguồn LED/relay <span class="hl">riêng 5V/3V3</span>, chung GND với ESP32</td></tr>
+      </tbody>
+    </table>
+    <p class="muted">Quy tắc nhanh: <code>I_budget ≈ 200 mA − I_wifi</code> · <code>N_LED_max ≈ I_budget / I_LED</code> · <code>N_74HC595 ≈ ceil(N_LED / 8)</code>.</p>
+  </section>
+
+  <!-- 15 -->
+  <section class="slide dense">
+    <h2>Relay — không nối trực tiếp vào chân Q!</h2>
+    <table class="compact">
+      <thead><tr><th>Thành phần</th><th>Điện áp / dòng</th><th>Ghi chú</th></tr></thead>
+      <tbody>
+        <tr><td>Cuộn relay 5 V thường</td><td>~5 V · <b>50 – 80 mA</b>/cuộn</td><td>1 relay đã gần = tổng budget 1 package 74HC595</td></tr>
+        <tr><td>Cuộn relay 12 V</td><td>12 V · ~30–40 mA+</td><td>Cần nguồn 12 V riêng + driver</td></tr>
+        <tr><td>Ngõ ra 74HC595</td><td>Logic · mA nhỏ</td><td><span class="warn">Không đủ / không an toàn</span> kéo cuộn trực tiếp</td></tr>
+        <tr><td>Module relay 1–8 kênh</td><td>Opto + transistor sẵn</td><td>IN logic từ Qx (hoặc GPIO); <b>JD-VCC</b> nguồn cuộn tách</td></tr>
+      </tbody>
+    </table>
+    <div class="diagram">Đúng:
+  Qx (74HC595) ──▶ IN module relay (optocoupler) ──▶ transistor ──▶ cuộn
+  Nguồn cuộn: 5V/USB hub / adaptor riêng  ·  GND chung với ESP32
+
+Sai:
+  Qx ──▶ trực tiếp cuộn relay  →  cháy 74HC595 / sụp 3V3 / ESP32 reset</div>
+    <p>Nhiều relay cùng lúc: tính <code>N × I_cuộn</code> trên nguồn <span class="hl">JD-VCC / 5V riêng</span>, không cộng vào LDO 3V3 ESP32.</p>
+  </section>
+
+  <!-- 16 -->
+  <section class="slide dense">
+    <h2>Checklist chống sụp nguồn</h2>
+    <div class="grid">
+      <div class="card"><h3>1. USB / adapter</h3><p>Cáp ngắn, cổng ≥ <b>1 A</b>. Tránh hub không nguồn khi demo Wi‑Fi + nhiều LED.</p></div>
+      <div class="card"><h3>2. Điện trở LED</h3><p>Luôn có R · ưu tiên 220–470 Ω. Đừng full-on 16 LED không R.</p></div>
+      <div class="card"><h3>3. Tách nguồn tải</h3><p>≥3 chip LED sáng mạnh hoặc mọi relay: nguồn riêng, <span class="hl">chung GND</span>.</p></div>
+      <div class="card"><h3>4. Tụ / dây</h3><p>VCC–GND gần 74HC595: tụ 100 nF. Dây nguồn ngắn, đủ dày.</p></div>
+      <div class="card"><h3>5. Phần mềm</h3><p>Không bật hết kênh nếu không cần · <code>clear</code> khi xong · tránh spike MQTT+full LED.</p></div>
+      <div class="card"><h3>6. Công thức nhớ</h3><p><b>Số 74HC595 ≈ không giới hạn tín hiệu</b>; <b>dòng LED/relay mới giới hạn</b>.</p></div>
+    </div>
+  </section>
+
+  <!-- 17 -->
+  <section class="slide dense">
+    <h2>Lỗi nối chân thường gặp</h2>
+    <div class="grid">
+      <div class="card"><h3>OE quên kéo GND</h3><p>OE nổi / kéo HIGH → Q0–Q7 Hi-Z → LED không sáng dù code đúng.</p></div>
+      <div class="card"><h3>SRCLR nối GND</h3><p>Clear luôn active → thanh ghi bị xóa liên tục → không giữ trạng thái.</p></div>
+      <div class="card"><h3>Thiếu Q7S→DS</h3><p>Chip 2 không nhận data → LED8–15 tắt; chỉ còn 8 LED đầu.</p></div>
+      <div class="card"><h3>Clock/Latch không song song</h3><p>SHCP/STCP phải chung cả 2 chip — nếu chỉ nối 1 chip, daisy-chain lệch pha.</p></div>
+      <div class="card"><h3>LED ngược cực</h3><p>Anode phải về Qx, cathode về GND (+R). Nối ngược → không sáng.</p></div>
+      <div class="card"><h3>Không chung GND</h3><p>ESP32 và 74HC595 khác mass → mức logic sai, chip nóng / hành vi lạ.</p></div>
+    </div>
+  </section>
+
+  <!-- CODE MAP -->
+  <section class="slide dense">
+    <h2>Firmware — tách từng phần (bản đồ hàm)</h2>
+    <div class="diagram">main.cpp chia nhỏ theo việc:
+
+  ① config.h          → khai báo Wi‑Fi, MQTT_HOST, chân GPIO
+  ② writeShift/setLed → điều khiển chip 74HC595 / LED
+  ③ connectWifi()     → nối mạng Wi‑Fi
+  ④ connectMqtt()     → đăng ký broker + subscribe topic lệnh
+  ⑤ setup()           → khởi tạo chân, Serial, gắn callback, gọi ③④
+  ⑥ loop()            → giữ MQTT sống + nhấp nháy LED nếu cần
+  ⑦ handleMqtt()      → mỗi tin MQTT tới → đọc JSON → gọi ②
+
+Luồng chạy:
+  bật nguồn → setup() → loop() lặp mãi
+                │              │
+                │              └─ mqtt.loop() → nếu có tin → handleMqtt()
+                └─ connectWifi + connectMqtt (đăng ký broker)</div>
+    <p class="note">File mẫu: <code>firmware/nodemcu-shelf/src/main.cpp</code> · Slide sau giải thích <b>từng hàm một</b>.</p>
+  </section>
+
+  <section class="slide dense">
+    <h2>① config.h — cấu hình (chưa phải logic)</h2>
+    <pre>// include/config.h
+#define WIFI_SSID     "Wokwi-GUEST"      // tên Wi‑Fi (lab Wokwi)
+#define WIFI_PASSWORD ""                 // mật khẩu (Wokwi để trống)
+#define MQTT_HOST     "broker.emqx.io"   // địa chỉ máy chủ MQTT (broker)
+#define MQTT_PORT     1883               // cổng MQTT thường dùng
+#define DEVICE_ID     "node-A"           // tên thiết bị → tạo topic
+
+#define PIN_SER   14   // GPIO14 = Data  → chân DS chip 74HC595
+#define PIN_SRCLK 12   // GPIO12 = Clock → chân SHCP
+#define PIN_RCLK  13   // GPIO13 = Latch → chân STCP</pre>
+    <p><span class="hl">Broker</span> = máy chủ trung gian MQTT. Lab: <code>broker.emqx.io</code>. Board thật trong LAN: IP máy chạy Mosquitto.</p>
+  </section>
+
+  <section class="slide dense">
+    <h2>② Ghi LED — writeShift / setLed / clearAll</h2>
+    <pre>uint16_t ledMask = 0;  // 16 bit = 16 kênh LED (bit0=LED0 … bit15=LED15)
+
+void writeShift(uint16_t mask) {
+  digitalWrite(PIN_RCLK, LOW);              // hạ Latch trước khi đẩy bit
+  shiftOut(PIN_SER, PIN_SRCLK, MSBFIRST, (mask >> 8) & 0xFF); // byte → chip 2
+  shiftOut(PIN_SER, PIN_SRCLK, MSBFIRST,  mask       & 0xFF); // byte → chip 1
+  digitalWrite(PIN_RCLK, HIGH);             // STCP HIGH = chốt ra Q0–Q7
+}
+
+void setLed(uint8_t index, bool on) {       // bật/tắt 1 kênh
+  if (on) ledMask |=  (1u &lt;&lt; index);
+  else    ledMask &= ~(1u &lt;&lt; index);
+  writeShift(ledMask);
+}
+
+void clearAll() { ledMask = 0; writeShift(ledMask); }  // tắt hết</pre>
+    <p class="muted"><code>shiftOut</code> = đẩy bit tuần tự · <code>PIN_RCLK</code> = chân Latch (STCP).</p>
+  </section>
+
+  <section class="slide dense">
+    <h2>③ connectWifi() — nối Wi‑Fi</h2>
+    <pre>void connectWifi() {
+  WiFi.mode(WIFI_STA);                      // chế độ Station (client)
+  WiFi.begin(WIFI_SSID, WIFI_PASSWORD);     // bắt đầu kết nối
+  unsigned long start = millis();
+  while (WiFi.status() != WL_CONNECTED      // chờ đến khi có IP
+         &amp;&amp; millis() - start &lt; 20000) {
+    delay(250);
+  }
+}
+// setup() sẽ in: Serial.printf("WiFi %s\n", … "ok" hoặc "fail");</pre>
+    <ul>
+      <li>MQTT chạy trên TCP/IP → <span class="hl">phải có Wi‑Fi trước</span> mới đăng ký broker được.</li>
+      <li>Wokwi: SSID <code>Wokwi-GUEST</code>, không mật khẩu.</li>
+    </ul>
+  </section>
+
+  <section class="slide dense">
+    <h2>④ connectMqtt() — đăng ký MQTT broker (chi tiết)</h2>
+    <pre>void connectMqtt() {
+  // 1) Tên client duy nhất trên broker (tránh trùng)
+  String clientId = String("shelf-") + DEVICE_ID + "-" + String(chipId, HEX);
+
+  while (!mqtt.connected()) {
+    // 2) ĐĂNG KÝ / kết nối tới broker (MQTT_HOST:MQTT_PORT)
+    if (mqtt.connect(clientId.c_str())) {
+
+      // 3) SUBSCRIBE = đăng ký NHẬN lệnh trên topic
+      String topic = "warehouse/" + DEVICE_ID + "/light";
+      mqtt.subscribe(topic.c_str(), 1);   // QoS 1
+
+      // 4) PUBLISH status = báo “tôi online” (tuỳ chọn nhưng hữu ích)
+      mqtt.publish("warehouse/node-A/status", "{\"online\":true}");
+
+      Serial.printf("MQTT ok → %s\n", topic.c_str());
+    } else {
+      Serial.printf("MQTT fail rc=%d\n", mqtt.state());
+      delay(2000);   // thử lại
+    }
+  }
+}</pre>
+    <p class="note"><b>connect</b> = vào phòng chat broker · <b>subscribe</b> = đăng ký nghe topic · <b>publish</b> = gửi tin đi.</p>
+  </section>
+
+  <section class="slide">
+    <h2>④ Topic sau khi đăng ký</h2>
+    <pre>DEVICE_ID = "node-A"
+
+Subscribe (nhận lệnh điều khiển LED):
+  warehouse/node-A/light
+
+Publish (báo trạng thái thiết bị):
+  warehouse/node-A/status   ← {"online":true}
+
+App / MQTTX phải publish ĐÚNG topic light → ESP32 mới nhận.</pre>
+    <div class="grid">
+      <div class="card"><h3>Tốt</h3><ul><li><code>warehouse/{id}/light</code></li><li>Mỗi nhóm 1 <code>DEVICE_ID</code></li></ul></div>
+      <div class="card"><h3>Tránh</h3><ul><li>Topic quá chung: <code>led</code></li><li>Gõ sai tên (node-A vs nodeA)</li></ul></div>
+    </div>
+  </section>
+
+  <section class="slide dense">
+    <h2>⑤ setup() — gắn callback + gọi đăng ký</h2>
+    <pre>void setup() {
+  pinMode(PIN_SER, OUTPUT);     // 3 chân tới chip 74HC595
+  pinMode(PIN_SRCLK, OUTPUT);
+  pinMode(PIN_RCLK, OUTPUT);
+  clearAll();                   // LED tắt lúc mới boot
+
+  Serial.begin(115200);         // in log ra Serial Monitor
+  connectWifi();                // ③
+
+  mqtt.setServer(MQTT_HOST, MQTT_PORT);  // chỉ định broker
+  mqtt.setBufferSize(512);               // đủ chỗ chứa JSON
+  mqtt.setCallback(handleMqtt);          // khi có tin → gọi ⑦
+  connectMqtt();                         // ④ đăng ký + subscribe
+}</pre>
+    <p><span class="hl">setCallback(handleMqtt)</span> = “khi broker đẩy tin về, chạy hàm handleMqtt”.</p>
+  </section>
+
+  <section class="slide dense">
+    <h2>⑥ loop() — giữ kết nối + nhận tin</h2>
+    <pre>void loop() {
+  if (!mqtt.connected()) connectMqtt();  // mất mạng → đăng ký lại
+  mqtt.loop();   // BẮT BUỘC: đọc tin từ broker → gọi handleMqtt
+
+  // (tuỳ chọn) logic nhấp nháy LED theo thời gian
+  if (blinking) { … setLed bật/tắt theo chu kỳ … }
+}</pre>
+    <ul>
+      <li>Quên <code>mqtt.loop()</code> → <span class="warn">không bao giờ vào handleMqtt</span> (LED không đổi).</li>
+      <li>Serial lab: thấy <code>MQTT in […]: {…json…}</code> là tin đã tới chip.</li>
+    </ul>
+  </section>
+
+  <section class="slide">
+    <h2>Payload JSON — 1 kênh</h2>
+    <pre>{"action":"on",    "ledIndex":7}
+{"action":"off",   "ledIndex":7}
+{"action":"blink", "ledIndex":7, "durationMs":5000, "blinkHz":2}
+{"action":"clear"}</pre>
+    <p class="muted">App/MQTTX <b>publish</b> chuỗi JSON lên <code>warehouse/node-A/light</code>.</p>
+  </section>
+
+  <section class="slide">
+    <h2>Payload — nhiều kênh cùng lúc</h2>
+    <div class="row">
+      <div>
+        <h3>set — bitmask</h3>
+        <pre>{"action":"set","mask":255}
+// 255 = 8 LED đầu ON</pre>
+      </div>
+      <div>
+        <h3>setMany — danh sách</h3>
+        <pre>{"action":"setMany",
+ "channels":[0,3,7,12],
+ "state":true}
+
+{"action":"clear"}  // tắt hết</pre>
+      </div>
+    </div>
+  </section>
+
+  <section class="slide dense">
+    <h2>⑦ handleMqtt() — bước 1: nhận &amp; đọc JSON</h2>
+    <pre>void handleMqtt(char* topic, byte* payload, unsigned int length) {
+  // A) In raw ra Serial (debug lab)
+  Serial.write(payload, length);
+
+  // B) Đổi chuỗi JSON → object
+  JsonDocument doc;
+  if (deserializeJson(doc, payload, length)) {
+    Serial.println("JSON err");
+    return;   // sai JSON → bỏ qua, không đụng LED
+  }
+
+  // C) Lấy field dùng chung
+  const char* action = doc["action"] | "";
+  int ledIndex = doc["ledIndex"] | -1;
+  // … rồi rẽ nhánh theo action (slide sau)
+}</pre>
+    <p class="note">Chưa điều khiển LED ở bước này — chỉ <b>nhận tin</b> và <b>parse</b>.</p>
+  </section>
+
+  <section class="slide dense">
+    <h2>⑦ handleMqtt() — bước 2: rẽ nhánh theo action</h2>
+    <pre>if      (action == "on")      setLed(ledIndex, true);
+else if (action == "off")     setLed(ledIndex, false);
+else if (action == "blink")   startBlink(ledIndex, durationMs, hz);
+else if (action == "clear")   clearAll();
+else if (action == "set") {
+  ledMask = doc["mask"];
+  writeShift(ledMask);          // 1 lần ghi cả bảng
+}
+else if (action == "setMany") {
+  bool state = doc["state"] | true;
+  for (int idx : doc["channels"].as&lt;JsonArray&gt;())
+    setLed(idx, state);         // bật/tắt từng kênh trong list
+}</pre>
+    <p>Mỗi <code>action</code> = một việc rõ ràng → sinh viên dễ thêm lệnh mới (ví dụ <code>toggle</code>).</p>
+  </section>
+
+  <!-- 12 -->
+  <section class="slide">
+    <h2>Publish từ máy tính (test)</h2>
+    <pre># Mosquitto CLI
+mosquitto_pub -h broker.emqx.io -t warehouse/node-A/light -m \
+  '{"action":"set","mask":255}'
+
+# Bật kênh 0,1,2,3 (4 LED đầu)
+mosquitto_pub -h broker.emqx.io -t warehouse/node-A/light -m \
+  '{"action":"setMany","channels":[0,1,2,3],"state":true}'
+
+# Python (paho-mqtt)
+client.publish(
+  "warehouse/node-A/light",
+  json.dumps({"action": "blink", "ledIndex": 7, "durationMs": 5000}),
+  qos=1
+)</pre>
+    <p class="muted">Hoặc dùng MQTTX / app Massive Handover (<code>POST /api/shelves/blink</code>).</p>
+  </section>
+
+  <!-- 13 -->
+  <section class="slide">
+    <h2>PlatformIO + Wokwi (lab không cần kit)</h2>
+    <ol>
+      <li>Mở folder <code>firmware/nodemcu-shelf</code></li>
+      <li><code>pio run</code> → ra <code>firmware.bin</code></li>
+      <li>Extension <span class="hl">Wokwi</span> → Start Simulator (board ESP32 + 2×74HC595 + 16 LED)</li>
+      <li>Wi‑Fi sim: <code>Wokwi-GUEST</code> · MQTT: <code>broker.emqx.io</code></li>
+      <li>Publish lệnh từ MQTTX → nhìn LED nháy trên diagram</li>
+    </ol>
+    <p class="warn">Lưu ý: Wokwi hiện không mô phỏng ESP8266 tốt — dùng ESP32 DevKit.</p>
+  </section>
+
+  <!-- 14 -->
+  <section class="slide">
+    <h2>Checklist an toàn (relay)</h2>
+    <div class="grid">
+      <div class="card"><h3>Logic thấp</h3><p>74HC595 / ESP32 chỉ 3.3V logic. Relay module thường cần transistor + diode flyback.</p></div>
+      <div class="card"><h3>Tải AC</h3><p>Dùng module relay cách ly, vỏ kín, không chạm cực AC khi thí nghiệm.</p></div>
+      <div class="card"><h3>Chung GND</h3><p>ESP32, 74HC595, module relay phải chung mass (GND).</p></div>
+      <div class="card"><h3>Công suất</h3><p>Không lấy nguồn relay từ chân 3V3 ESP32 nếu nhiều kênh — dùng nguồn 5V riêng.</p></div>
+    </div>
+  </section>
+
+  <!-- 15 -->
+  <section class="slide">
+    <h2>Bài tập sinh viên</h2>
+    <ol>
+      <li><span class="hl">Bắt buộc:</span> Subscribe topic nhóm mình, bật/tắt LED theo <code>on</code>/<code>off</code>/<code>clear</code>.</li>
+      <li><span class="hl">Nâng cao:</span> Thêm action <code>set</code> (mask) và <code>setMany</code> — demo bật 4 relay cùng lúc bằng 1 payload.</li>
+      <li><span class="hl">Ứng dụng:</span> Viết script Python/Node publish theo lịch (ví dụ sáng bật 0–3, tối clear).</li>
+      <li><span class="hl">Mở rộng:</span> Thêm topic <code>.../status</code> báo lại mask hiện tại mỗi khi đổi.</li>
+    </ol>
+  </section>
+
+  <!-- 16 -->
+  <section class="slide">
+    <h2>Tóm tắt 1 trang</h2>
+    <div class="grid">
+      <div class="card"><h3>Phần cứng</h3><p>ESP32 · 3 GPIO · 1–2×74HC595 · LED hoặc relay driver</p></div>
+      <div class="card"><h3>Topic</h3><p><code>warehouse/{id}/light</code> (cmd) · <code>.../status</code> (telemetry)</p></div>
+      <div class="card"><h3>Payload</h3><p>JSON: <code>action</code> + <code>ledIndex</code> hoặc <code>mask</code> / <code>channels[]</code></p></div>
+      <div class="card"><h3>Nhiều thiết bị</h3><p>1 message → 1 bitmask 16-bit → <code>writeShift</code> một lần</p></div>
+    </div>
+    <p class="muted" style="margin-top:1rem">Code mẫu đầy đủ: <code>firmware/nodemcu-shelf/</code> · Slide này: <code>docs/slides/esp32-74hc595-mqtt.html</code></p>
+  </section>
+
+</div>
+
+<div class="footer">
+  <span>← → hoặc click · <kbd>F</kbd> fullscreen</span>
+  <span id="counter">1 / 16</span>
+  <span>
+    <button type="button" id="prev">Trước</button>
+    <button type="button" id="next">Sau</button>
+  </span>
+</div>
+
+<script>
+  const slides = [...document.querySelectorAll('.slide')];
+  let i = 0;
+  const counter = document.getElementById('counter');
+  function show(n) {
+    i = (n + slides.length) % slides.length;
+    slides.forEach((s, k) => s.classList.toggle('active', k === i));
+    counter.textContent = `${i + 1} / ${slides.length}`;
+  }
+  document.getElementById('prev').onclick = () => show(i - 1);
+  document.getElementById('next').onclick = () => show(i + 1);
+  window.addEventListener('keydown', (e) => {
+    if (e.key === 'ArrowRight' || e.key === ' ' || e.key === 'PageDown') { e.preventDefault(); show(i + 1); }
+    if (e.key === 'ArrowLeft' || e.key === 'PageUp') { e.preventDefault(); show(i - 1); }
+    if (e.key === 'f' || e.key === 'F') document.documentElement.requestFullscreen?.();
+  });
+</script>
+</body>
+</html>

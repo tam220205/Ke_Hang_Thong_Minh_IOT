@@ -104,7 +104,7 @@ docker compose up -d
 ### Cấu hình secrets cục bộ
 * `tools/setup_security.py` tạo `.env`, `include/secrets.h` (nếu chưa có), `docker/nginx/auth/.htpasswd` và `docker/mosquitto/config/passwd`. Mật khẩu chỉ in ra một lần. Chạy lại với `--rotate` để đổi toàn bộ.
 * Điền token Telegram và chat ID vào `include/secrets.h` (ESP32) và `.env` (Node-RED). Chỉ các chat ID trong danh sách mới dùng được lệnh bot. Không commit `include/secrets.h`, `.env` hay các tệp mật khẩu.
-* Token Telegram cũ vẫn nằm trong lịch sử Git công khai: **phải thu hồi qua @BotFather (`/revoke`) và tạo token mới**.
+* Token Telegram cũ trong lịch sử Git công khai đã được thu hồi qua @BotFather (`/revoke`); bot dùng token mới, chỉ lưu trong `.env` và `include/secrets.h`. Nếu token lộ lần nữa, thu hồi và thay ở hai tệp này.
 
 ### 🔐 Bảo mật (OWASP IoT Top 10)
 | Mục | Biện pháp trong mã nguồn |

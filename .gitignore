@@ -9,3 +9,4 @@ include/secrets.h
 .env
 docker/mosquitto/config/passwd
 docker/nginx/auth/
+.secrets-generated.txt
